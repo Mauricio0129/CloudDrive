@@ -1,5 +1,7 @@
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
+from services.basic_services import BasicServices
+from routes.user_routes import create_user_routes
 import asyncpg
 import os
 
@@ -24,6 +26,9 @@ async def lifespan(app):
     pool = await asyncpg.create_pool(DATABASE_URL)
     print("Database pool created")
 
+    services = BasicServices(pool)
+    user_routes = create_user_routes(services)
+    app.include_router(user_routes)
     yield
 
     await pool.close()

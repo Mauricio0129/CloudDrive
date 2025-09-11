@@ -6,6 +6,7 @@ name = "pypi"
 [packages]
 fastapi = {extras = ["standard"], version = "*"}
 asyncpg = "*"
+passlib = {extras = ["bcrypt"], version = "*"}
 
 [dev-packages]
 
