@@ -14,5 +14,4 @@ def create_user_routes(services: BasicServices) -> APIRouter:
            return HTTPException(status_code=500, detail="Internal Server Error")
        return {"message": "User already exists!"}
 
-
     return user_routes

@@ -1,14 +1,14 @@
+from passlib.context import CryptContext
 from schemas.schemas import RegisterUser
-from security import pwd_context
 
 
 class BasicServices:
-    def __init__(self, db):
+    def __init__(self, db, pwd_context):
         self.db = db
+        self.pwd_context = pwd_context
 
-    @staticmethod
-    def hash_password(password):
-        return pwd_context.hash(password)
+    def hash_password(self, password):
+        return self.pwd_context.hash(password)
 
     async def check_if_user_exist(self, user: RegisterUser):
         async with self.db.acquire() as conn:
