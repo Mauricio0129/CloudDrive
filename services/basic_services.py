@@ -10,12 +10,10 @@ class BasicServices:
     def hash_password(self, password):
         return self.pwd_context.hash(password)
 
-    async def check_if_user_exist(self, user: RegisterUser):
+    async def check_if_user_exist_registration(self, user: RegisterUser):
         async with self.db.acquire() as conn:
-            row = await conn.fetchrow("SELECT * FROM users WHERE email = $1", user.email)
-            if not row:
-                return False
-            return True
+            row = await conn.fetchrow("SELECT * FROM users WHERE username = $1 OR email = $2", user.username, user.email)
+            return bool(row)
 
     async def register_user(self, user: RegisterUser):
         password = self.hash_password(user.password.get_secret_value())
