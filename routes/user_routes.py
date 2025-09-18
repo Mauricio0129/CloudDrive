@@ -30,10 +30,8 @@ def create_user_routes(services: BasicServices) -> APIRouter:
 
     @user_routes.post("/upload")
     async def upload_file(user: Annotated[str, Depends(services.get_token_and_decode)], file : UploadFile,
-                          upload_headers: Annotated[UploadHeaders, Header()]):
-        logged_file = await services.register_file(file, user, upload_headers.x_folder_id)
-        if not logged_file:
-            raise HTTPException(status_code=500, detail="Internal Server Error")
+            upload_headers: Annotated[UploadHeaders, Header()]):
+        await services.register_file(file, user, upload_headers.x_folder_id)
         return {"message": "File successfully uploaded"}
 
     return user_routes
