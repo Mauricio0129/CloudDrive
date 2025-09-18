@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
+from startup import DATABASE_URL, pwd_context, secret_key, algorithm, access_token_expire_minutes
 from services.basic_services import BasicServices
 from routes.user_routes import create_user_routes
-from startup import DATABASE_URL, pwd_context, secret_key, algorithm, access_token_expire_minutes
 import asyncpg
 
 @asynccontextmanager

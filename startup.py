@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
 from passlib.context import CryptContext
+from fastapi.security import OAuth2PasswordBearer
 import os
 
 load_dotenv()
@@ -24,3 +25,5 @@ access_token_expire_minutes = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
 DATABASE_URL = f"postgresql://{user}:{password}@{host}:{port}/{database}"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
