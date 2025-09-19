@@ -29,6 +29,8 @@ async def lifespan(app):
     app.include_router(user_routes)
 
     yield
-
-    await pool.close()
-    logger.info("Database pool closed")
+    try:
+        await pool.close()
+        logger.info("Database connection closed")
+    except Exception as exc:
+        logger.error(f"Error closing the database pool: {exc}")
