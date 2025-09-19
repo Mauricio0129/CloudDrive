@@ -93,8 +93,6 @@ class BasicServices:
             size = str(size) + "B"
         return size
 
-
-
     async def register_file(self, file:UploadFile, user_id, folder_id) -> bool:
         size = await self.calculate_file_size(file)              ## calculate file size asynchronously
         name, ext = file.filename.rsplit(".", 1)    ## split filename into name and extension
