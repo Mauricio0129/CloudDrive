@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, Depends, UploadFile, Header
 from schemas.schemas import RegisterUser, UploadHeaders
 from services.basic_services import BasicServices
 from fastapi.security import OAuth2PasswordRequestForm
+from depencies import get_token_and_decode
 
 
 def create_user_routes(services: BasicServices) -> APIRouter:
@@ -29,7 +30,7 @@ def create_user_routes(services: BasicServices) -> APIRouter:
         }
 
     @user_routes.post("/upload")
-    async def upload_file(user: Annotated[str, Depends(services.get_token_and_decode)], file : UploadFile,
+    async def upload_file(user: Annotated[str, Depends(get_token_and_decode)], file : UploadFile,
             upload_headers: Annotated[UploadHeaders, Header()]):
         await services.register_file(file, user, upload_headers.x_folder_id)
         return {"message": "File successfully uploaded"}
