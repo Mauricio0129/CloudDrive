@@ -1,6 +1,8 @@
 from contextlib import asynccontextmanager
 from startup import DATABASE_URL, pwd_context, secret_key, algorithm, access_token_expire_minutes
-from services.basic_services import BasicServices
+from services.user_services import UserServices
+from services.auth_services import AuthServices
+from services.storage_services import StorageServices
 from routes.user_routes import create_user_routes
 import asyncpg
 import logging
@@ -24,8 +26,12 @@ async def lifespan(app):
         logger.error(f"Failed to create database pool: {exc}")
         raise
 
-    services = BasicServices(pool, pwd_context, secret_key, algorithm, access_token_expire_minutes)
-    user_routes = create_user_routes(services)
+    user_services = UserServices(pool)
+    auth_services = AuthServices(secret_key, algorithm, access_token_expire_minutes, pwd_context)
+    storage_services = StorageServices(pool)
+
+
+    user_routes = create_user_routes(user_services, auth_services, storage_services)
     app.include_router(user_routes)
 
     yield
