@@ -13,9 +13,8 @@ def create_user_routes(user_services, auth_services, storage_services) -> APIRou
     async def create_user(user: RegisterUser):
         await user_services.check_if_user_exist_registration(user.username, user.email)
         hashed_password = auth_services.hash_password(user.password.get_secret_value())
-        if await user_services.register_user(user.username, user.email, hashed_password):
-            return JSONResponse(status_code=201, content={"message": "User successfully registered"})
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        await user_services.register_user(user.username, user.email, hashed_password)
+        return JSONResponse(status_code=201, content={"message": "User successfully registered"})
 
     @user_routes.post("/login")
     async def login_user(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):

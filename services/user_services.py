@@ -29,6 +29,4 @@ class UserServices:
             row = await conn.fetchrow("INSERT INTO users (username, email, password) "
                                       "VALUES ($1, $2, $3) RETURNING id",
                                       username, email, hashed_password)
-            if not row:
-                raise HTTPException(status_code=500, detail="Failed to register user")
             return str(row["id"])
