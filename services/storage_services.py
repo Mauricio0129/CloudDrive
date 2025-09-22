@@ -1,5 +1,7 @@
 from fastapi import UploadFile
+from pathlib import Path
 
+# noinspection SqlNoDataSourceInspection
 class StorageServices:
     def __init__(self, db):
         self.db = db
@@ -35,10 +37,14 @@ class StorageServices:
 
     async def register_file(self, file: UploadFile, user_id, folder_id) -> bool:
         size = await self.calculate_file_size(file)  ## calculate file size asynchronously
-        name, ext = file.filename.rsplit(".", 1)  ## split filename into name and extension
+        path = Path(file.filename)
+        name = path.stem
+        ext = path.suffix.lstrip('.')
         size = self.format_file_size(size)  ## format file size(e.g, bytes to KB, MB)
 
         async with self.db.acquire() as conn:
-            row = await conn.execute("INSERT INTO files (name, size, type, owner_id, folder_id) "
-                                     "VALUES ($1, $2, $3, $4, $5)", name, size, ext, user_id, folder_id)
+            row = await conn.fetchrow(
+                "INSERT INTO files (name, size, type, owner_id, folder_id) "
+                "VALUES ($1, $2, $3, $4, $5) RETURNING id",
+                name, size, ext, user_id, folder_id)
         return bool(row)
