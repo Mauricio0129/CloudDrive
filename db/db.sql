@@ -5,8 +5,8 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     username VARCHAR(15) NOT NULL UNIQUE,
-    email VARCHAR(35) NOT NULL UNIQUE,
-    password VARCHAR(20) NOT NULL,
+    email VARCHAR(40) NOT NULL UNIQUE,
+    password VARCHAR(60) NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
@@ -23,8 +23,8 @@ CREATE TABLE folders (
 CREATE TABLE files (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(50) NOT NULL,
-    size INT NOT NULL,
-    type VARCHAR(6) NOT NULL,
+    size VARCHAR(8) NOT NULL,
+    type VARCHAR(8) NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     last_interactions TIMESTAMP NOT NULL DEFAULT NOW(),
     owner_id UUID REFERENCES users(id) ON DELETE CASCADE,
