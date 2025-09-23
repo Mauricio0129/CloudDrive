@@ -27,9 +27,9 @@ def create_user_routes(user_services, auth_services, storage_services) -> APIRou
         }
 
     @user_routes.post("/upload")
-    async def upload_file(user: Annotated[str, Depends(get_token_and_decode)], file : UploadFile,
+    async def upload_file(user_id: Annotated[str, Depends(get_token_and_decode)], file : UploadFile,
             upload_headers: Annotated[UploadHeaders, Header()]):
-        await storage_services.register_file(file, user, upload_headers.x_folder_id)
-        return {"message": "File successfully uploaded"}
+        stored_file = await storage_services.register_file(file, user_id, upload_headers.x_folder_id)
+        return {"message": f"File: {stored_file} successfully uploaded"}
 
     return user_routes
