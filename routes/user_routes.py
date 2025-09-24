@@ -1,6 +1,6 @@
 from typing import Annotated
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, Header
-from schemas.schemas import RegisterUser, UploadHeaders
+from schemas.schemas import RegisterUser, UploadHeaders, FolderHeaders
 from fastapi.security import OAuth2PasswordRequestForm
 from dependencies import get_token_and_decode
 from fastapi.responses import JSONResponse
@@ -31,5 +31,12 @@ def create_user_routes(user_services, auth_services, storage_services) -> APIRou
             upload_headers: Annotated[UploadHeaders, Header()]):
         stored_file = await storage_services.register_file(file, user_id, upload_headers.x_folder_id)
         return {"message": f"File: {stored_file} successfully uploaded"}
+
+    @user_routes.post("/folder")
+    async def create_folder(user_id: Annotated[str, Depends(get_token_and_decode)],
+                            folder_info :Annotated[FolderHeaders, Header()]):
+        folder_name = await storage_services.register_folder(folder_info.x_folder_name,
+                                                           folder_info.x_parent_folder_id, user_id)
+        return {"message": f"Folder: {folder_name} successfully created"}
 
     return user_routes

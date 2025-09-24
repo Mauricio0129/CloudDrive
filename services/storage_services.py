@@ -78,3 +78,45 @@ class StorageServices:
                 "VALUES ($1, $2, $3, $4, $5) RETURNING name",
                 name, size, ext, user_id, folder_id)
         return str(row["name"])
+
+    async def check_folder_exists_at_location(self, folder_name, parent_folder_id, owner_id)-> str | None:
+        async with self.db.acquire() as conn:
+            if parent_folder_id:
+                row = await conn.fetchrow(
+                    "SELECT name FROM folders WHERE name = $1 AND parent_folder_id = $2 AND owner_id = $3",
+                    folder_name, parent_folder_id, owner_id
+
+                )
+            else:
+                row = await conn.fetchrow(
+                    "SELECT name FROM folders WHERE name = $1 AND parent_folder_id IS NULL AND owner_id = $2",
+                    folder_name, owner_id
+                )
+            if row:
+                return str(row["name"])
+            return None
+
+    async def validate_parent_folder(self, parent_folder_id, owner_id) -> bool | None:
+        async with self.db.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT name FROM folders WHERE id = $1 AND owner_id = $2",
+                parent_folder_id, owner_id
+            )
+            return bool(row)
+
+    async def register_folder(self, folder_name, parent_folder_id, owner_id) -> str:
+        if parent_folder_id: ## If we got passed a parent_folder_id we validate its existence
+            if not await self.validate_parent_folder(parent_folder_id, owner_id):
+                raise HTTPException(status_code=404, detail="Parent folder not found")
+
+        ## Now we validate if the folder doesn't exist
+        if await self.check_folder_exists_at_location(folder_name, parent_folder_id, owner_id):
+            raise HTTPException(status_code=409, detail=f"Folder '{folder_name}' already exists in this location")
+
+        ## If both conditions are meet meaning the parent folder exist or is null meaning is a root folder
+        ## And the folder doesn't already exist at this location we register it
+        async with self.db.acquire() as conn:
+            row = await conn.fetchrow("INSERT INTO folders (name, parent_folder_id, owner_id)" 
+                                      "VALUES ($1, $2, $3) RETURNING name", folder_name, parent_folder_id, owner_id)
+            return str(row["name"])
+

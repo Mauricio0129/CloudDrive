@@ -17,6 +17,9 @@ class UserInDB(BaseModel):
 ## both optional as files/folders can be at root which doesn't need folder_id
 ## and there can or cannot be a file/folder conflict
 class UploadHeaders(BaseModel):
-    x_folder_id: Annotated[Optional[str], Field(min_length=3, max_length=36)] = None
+    x_folder_id: Annotated[Optional[str], Field(min_length=36, max_length=36)] = None
     x_file_folder_conflict: Optional[Literal["Replace", "Keep"]] = None
 
+class FolderHeaders(BaseModel):
+    x_parent_folder_id: Annotated[Optional[str], Field(min_length=36, max_length=36)] = None
+    x_folder_name: str = Field(min_length=3, max_length=25)
