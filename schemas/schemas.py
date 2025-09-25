@@ -1,3 +1,5 @@
+import uuid
+
 from pydantic import BaseModel, Field, EmailStr, SecretStr
 from typing import Literal, Annotated, Optional
 
@@ -23,3 +25,13 @@ class UploadHeaders(BaseModel):
 class FolderHeaders(BaseModel):
     x_parent_folder_id: Annotated[Optional[str], Field(min_length=36, max_length=36)] = None
     x_folder_name: str = Field(min_length=3, max_length=25)
+
+class FolderContent(BaseModel):
+    id: str
+    name: str
+    size: Optional[str] = None
+    type: Optional[str] = None # only for files allow us to differentiate between a file and a folder
+    last_interaction: str # Convert datetime to string
+    parent_folder_id: Optional[str] = None
+    # useful for going back process a user can go back and the frontend only needs to request
+    # the parent folder which is the same as going back

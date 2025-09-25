@@ -18,3 +18,11 @@ async def get_token_and_decode(token: Annotated[str, Depends(oauth2_scheme)]) ->
         return user_id
     except jwt.PyJWTError:
         raise credentials_exception
+
+def format_db_returning_objects(data: list):
+    for item in data:
+        item["id"] = str(item["id"])
+        item["last_interaction"] = item["last_interaction"].strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        if item.get("parent_folder_id"):
+            item["parent_folder_id"] = str(item["parent_folder_id"]) if item["parent_folder_id"] is not None else None
+    return data

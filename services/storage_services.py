@@ -1,6 +1,8 @@
 from fastapi import UploadFile
 from pathlib import Path
 from fastapi import HTTPException
+from itertools import chain
+from dependencies import format_db_returning_objects
 
 # noinspection SqlNoDataSourceInspection
 class StorageServices:
@@ -120,3 +122,27 @@ class StorageServices:
                                       "VALUES ($1, $2, $3) RETURNING name", folder_name, parent_folder_id, owner_id)
             return str(row["name"])
 
+    ## im calling the parameter location though technically is the parent_folder id but since its note called like that
+    ## for the file bc for the file would be the folder_id it belongs to, but it also marks location for it, I decided to
+    ## call it location and since the default entry root doest in
+    async def retrieve_folder_content(self, user_id, location = None):
+        async with self.db.acquire() as conn:
+            async with conn.transaction():
+                if not location:
+                    files = await conn.fetch("SELECT id, name, size, type, last_interaction "
+                                             "FROM files WHERE owner_id = $1 AND folder_id IS NULL", user_id)
+
+                    folders = await conn.fetch("SELECT id, name, last_interaction, parent_folder_id FROM folders "
+                                            "WHERE owner_id = $1 and parent_folder_id IS NULL", user_id)
+                else:
+                    files = await conn.fetch("SELECT id, name, size, type, last_interaction "
+                                             "FROM files WHERE owner_id = $1 AND folder_id = $2", user_id, location)
+
+                    folders = await conn.fetch("SELECT id, name, last_interaction, parent_folder_id FROM folders "
+                                              "WHERE owner_id = $1 and parent_folder_id = $2", user_id, location)
+
+                file_list = [dict(files) for files in files]
+                folder_list = [dict(folders) for folders in folders]
+                combined = list(chain(file_list, folder_list))
+                result = format_db_returning_objects(combined)
+        return result

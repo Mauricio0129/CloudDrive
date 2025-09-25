@@ -1,6 +1,6 @@
 from typing import Annotated
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, Header
-from schemas.schemas import RegisterUser, UploadHeaders, FolderHeaders
+from schemas.schemas import RegisterUser, UploadHeaders, FolderHeaders, FolderContent
 from fastapi.security import OAuth2PasswordRequestForm
 from dependencies import get_token_and_decode
 from fastapi.responses import JSONResponse
@@ -39,4 +39,8 @@ def create_user_routes(user_services, auth_services, storage_services) -> APIRou
                                                            folder_info.x_parent_folder_id, user_id)
         return {"message": f"Folder: {folder_name} successfully created"}
 
+    @user_routes.get("/drive", response_model=list[FolderContent])
+    async def get_root_content(user_id: Annotated[str, Depends(get_token_and_decode)]):
+        data = await storage_services.retrieve_folder_content(user_id)
+        return data
     return user_routes

@@ -4,3 +4,4 @@
  __pycache__/
 routes/__pycache__/user_routes.cpython-312.pyc
 services/__pycache__/basic_services.cpython-312.pyc
+test.html
