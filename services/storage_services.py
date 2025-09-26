@@ -1,7 +1,6 @@
 from fastapi import UploadFile
 from pathlib import Path
 from fastapi import HTTPException
-from itertools import chain
 from dependencies import format_db_returning_objects
 
 # noinspection SqlNoDataSourceInspection
@@ -60,6 +59,20 @@ class StorageServices:
             size = str(size) + "B"
         return size
 
+    @staticmethod
+    async def adjust_user_storage(user_id, file_size, conn):
+        size_to_subtract_from_user_storage = file_size // 1024
+        available = await conn.fetchval(
+            "SELECT available_storage_kb FROM users WHERE id = $1", user_id
+        )
+
+        if available < size_to_subtract_from_user_storage:
+            raise HTTPException(status_code=413, detail="Not enough storage space")
+
+        update_storage = await conn.execute("UPDATE users SET available_storage_kb"
+                                            " = available_storage_kb - $1 WHERE id = $2",
+                                            size_to_subtract_from_user_storage, user_id)
+
     async def register_file(self, file: UploadFile, user_id, folder_id) ->  str:
         path = Path(file.filename)
         name = path.stem
@@ -72,13 +85,19 @@ class StorageServices:
             raise HTTPException(status_code=400, detail="Folder not found")
 
         size = await self.calculate_file_size(file)  ## calculate file size asynchronously
+        size_in_bytes = size
         size = self.format_file_size(size)  ## format file size(e.g, bytes to KB, MB)
 
         async with self.db.acquire() as conn:
-            row = await conn.fetchrow(
-                "INSERT INTO files (name, size, type, owner_id, folder_id) "
-                "VALUES ($1, $2, $3, $4, $5) RETURNING name",
-                name, size, ext, user_id, folder_id)
+            async with conn.transaction():
+
+                await self.adjust_user_storage(user_id, size_in_bytes, conn)
+
+                row = await conn.fetchrow(
+                    "INSERT INTO files (name, size, type, owner_id, folder_id) "
+                    "VALUES ($1, $2, $3, $4, $5) RETURNING name",
+                    name, size, ext, user_id, folder_id)
+
         return str(row["name"])
 
     async def check_folder_exists_at_location(self, folder_name, parent_folder_id, owner_id)-> str | None:
@@ -128,21 +147,33 @@ class StorageServices:
     async def retrieve_folder_content(self, user_id, location = None):
         async with self.db.acquire() as conn:
             async with conn.transaction():
+
+                user_data  = await conn.fetchrow("SELECT username, email, available_storage_kb, total_storage_kb "
+                                                 "FROM users WHERE id = $1", user_id)
+
                 if not location:
-                    files = await conn.fetch("SELECT id, name, size, type, last_interaction "
+                    files = await conn.fetch("SELECT id, name, size, type, created_at, last_interaction "
                                              "FROM files WHERE owner_id = $1 AND folder_id IS NULL", user_id)
 
-                    folders = await conn.fetch("SELECT id, name, last_interaction, parent_folder_id FROM folders "
-                                            "WHERE owner_id = $1 and parent_folder_id IS NULL", user_id)
+                    folders = await conn.fetch("SELECT id, name, created_at, last_interaction, parent_folder_id"
+                                               " FROM folders WHERE owner_id = $1 and parent_folder_id IS NULL "
+                                               , user_id)
                 else:
-                    files = await conn.fetch("SELECT id, name, size, type, last_interaction "
+                    files = await conn.fetch("SELECT id, name, size, type, created_at, last_interaction "
                                              "FROM files WHERE owner_id = $1 AND folder_id = $2", user_id, location)
 
-                    folders = await conn.fetch("SELECT id, name, last_interaction, parent_folder_id FROM folders "
-                                              "WHERE owner_id = $1 and parent_folder_id = $2", user_id, location)
+                    folders = await conn.fetch("SELECT id, name, created_at, last_interaction, parent_folder_id "
+                                               "FROM folders WHERE owner_id = $1 and parent_folder_id = $2 "
+                                               , user_id, location)
 
+                user_dict = dict(user_data)
                 file_list = [dict(files) for files in files]
                 folder_list = [dict(folders) for folders in folders]
-                combined = list(chain(file_list, folder_list))
-                result = format_db_returning_objects(combined)
+                formated_file_list = format_db_returning_objects(file_list)
+                formated_folder_list = format_db_returning_objects(folder_list)
+                return {
+                    "user": user_dict,
+                    "files": formated_file_list,
+                    "folders": formated_folder_list,
+                }
         return result
