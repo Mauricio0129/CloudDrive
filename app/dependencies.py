@@ -1,6 +1,6 @@
 from fastapi.security import OAuth2PasswordBearer
 from fastapi import Depends, HTTPException
-from startup import secret_key, algorithm
+from .startup import secret_key, algorithm
 from typing import Annotated
 import jwt
 

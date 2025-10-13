@@ -6,7 +6,7 @@ load_dotenv()
 
 # Required environment variables
 env_vars = ["DATABASE", "DB_USER", "DATABASE_PASSWORD", "HOST", "PORT", "SECRET_KEY", "ALGORITHM",
-            "ACCESS_TOKEN_EXPIRE_MINUTES"]
+            "ACCESS_TOKEN_EXPIRE_MINUTES", "BUCKET_NAME"]
 
 missing = [var for var in env_vars if not os.getenv(var)]
 if missing:
@@ -20,6 +20,7 @@ port = os.getenv("PORT")
 secret_key = os.getenv("SECRET_KEY")
 algorithm = os.getenv("ALGORITHM")
 access_token_expire_minutes = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
+bucket_name = os.getenv("BUCKET_NAME")
 
 DATABASE_URL = f"postgresql://{db_user}:{password}@{host}:{port}/{database}"
 

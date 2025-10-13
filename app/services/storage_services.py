@@ -1,7 +1,7 @@
 from fastapi import UploadFile
 from pathlib import Path
 from fastapi import HTTPException
-from dependencies import format_db_returning_objects
+from app.dependencies import format_db_returning_objects
 
 # noinspection SqlNoDataSourceInspection
 class StorageServices:
@@ -176,4 +176,12 @@ class StorageServices:
                     "files": formated_file_list,
                     "folders": formated_folder_list,
                 }
-        return result
+
+    async def check_if_user_has_enough_space(self, user_id, size):
+        async with self.db.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT available_storage_in_bytes FROM users WHERE id = $1",
+                user_id
+            )
+        if size > row["available_storage_in_bytes"]:
+            raise HTTPException(status_code=403, detail="User doesnt have enough space")

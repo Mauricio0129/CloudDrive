@@ -1,4 +1,4 @@
-from schemas.schemas import UserInDB
+from ..schemas.schemas import UserInDB
 from fastapi import HTTPException
 
 # noinspection SqlNoDataSourceInspection

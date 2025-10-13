@@ -1,12 +1,12 @@
 from typing import Annotated
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, Header
-from schemas.schemas import RegisterUser, UploadHeaders, FolderHeaders, MainDriveInfo
+from app.schemas.schemas import RegisterUser, UploadHeaders, FolderHeaders, MainDriveInfo
 from fastapi.security import OAuth2PasswordRequestForm
-from dependencies import get_token_and_decode
+from app.dependencies import get_token_and_decode
 from fastapi.responses import JSONResponse
 
 
-def create_user_routes(user_services, auth_services, storage_services) -> APIRouter:
+def create_user_routes(user_services, auth_services, storage_services, aws_services) -> APIRouter:
     user_routes = APIRouter()
 
     @user_routes.post("/user")
@@ -43,4 +43,10 @@ def create_user_routes(user_services, auth_services, storage_services) -> APIRou
     async def get_root_content(user_id: Annotated[str, Depends(get_token_and_decode)]):
         data = await storage_services.retrieve_folder_content(user_id)
         return data
+
+    @user_routes.post("/profile_photo")
+    async def upload_profile_image(user_id: Annotated[str, Depends(get_token_and_decode)], photo_size_in_bytes: int):
+
+        return aws_services.generate_presigned_photo_upload_url(user_id, photo_size_in_bytes)
+
     return user_routes
