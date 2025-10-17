@@ -1,6 +1,6 @@
-from typing import Annotated
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, Header
-from app.schemas.schemas import RegisterUser, UploadHeaders, FolderHeaders, MainDriveInfo
+from typing import Annotated,Literal
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, Header, Query
+from app.schemas.schemas import RegisterUser, UploadHeaders, FolderHeaders, FolderContents
 from fastapi.security import OAuth2PasswordRequestForm
 from app.dependencies import get_token_and_decode
 from fastapi.responses import JSONResponse
@@ -39,14 +39,19 @@ def create_user_routes(user_services, auth_services, storage_services, aws_servi
                                                            folder_info.x_parent_folder_id, user_id)
         return {"message": f"Folder: {folder_name} successfully created"}
 
-    @user_routes.get("/drive", response_model=MainDriveInfo)
-    async def get_root_content(user_id: Annotated[str, Depends(get_token_and_decode)]):
-        data = await storage_services.retrieve_folder_content(user_id)
+    @user_routes.get("/drive", response_model=FolderContents)
+    async def get_root_content(user_id: Annotated[str, Depends(get_token_and_decode)],
+                               sort_by: Annotated[Literal["name", "created_at", "last_interaction"], Query()]
+                               = "last_interaction", order: Annotated[Literal["DESC", "ASC"], Query()] = "ASC"):
+        data = await storage_services.retrieve_folder_content(user_id, sort_by, order)
         return data
 
     @user_routes.post("/profile_photo")
     async def upload_profile_image(user_id: Annotated[str, Depends(get_token_and_decode)], photo_size_in_bytes: int):
-
         return aws_services.generate_presigned_photo_upload_url(user_id, photo_size_in_bytes)
+
+    @user_routes.get("/profile_photo")
+    async def get_profile_image(user_id: Annotated[str, Depends(get_token_and_decode)]):
+        return aws_services.generate_presigned_photo_download_url(user_id)
 
     return user_routes

@@ -144,38 +144,46 @@ class StorageServices:
     ## im calling the parameter location though technically is the parent_folder id but since its note called like that
     ## for the file bc for the file would be the folder_id it belongs to, but it also marks location for it, I decided to
     ## call it location and since the default entry root doest in
-    async def retrieve_folder_content(self, user_id, location = None):
+    async def retrieve_folder_content(self, user_id, sort_by, order, location=None):
         async with self.db.acquire() as conn:
             async with conn.transaction():
 
-                user_data  = await conn.fetchrow("SELECT username, email, available_storage_kb, total_storage_kb "
-                                                 "FROM users WHERE id = $1", user_id)
-
                 if not location:
-                    files = await conn.fetch("SELECT id, name, size, type, created_at, last_interaction "
-                                             "FROM files WHERE owner_id = $1 AND folder_id IS NULL", user_id)
+                    user_data = await conn.fetchrow("SELECT username, email, available_storage_in_bytes, "
+                                                    "total_storage_in_bytes "
+                                                    "FROM users WHERE id = $1", user_id)
 
-                    folders = await conn.fetch("SELECT id, name, created_at, last_interaction, parent_folder_id"
-                                               " FROM folders WHERE owner_id = $1 and parent_folder_id IS NULL "
-                                               , user_id)
+                    data = await conn.fetch(
+                        "SELECT id, name, created_at, last_interaction, size, type "
+                        "FROM files WHERE owner_id = $1 AND folder_id IS NULL "
+                        "UNION ALL "
+                        "SELECT id, name, created_at, last_interaction, NULL as size, NULL as type "
+                        "FROM folders WHERE owner_id = $1 AND parent_folder_id IS NULL "
+                        f"ORDER BY {sort_by} {order}", user_id
+                    )
                 else:
-                    files = await conn.fetch("SELECT id, name, size, type, created_at, last_interaction "
-                                             "FROM files WHERE owner_id = $1 AND folder_id = $2", user_id, location)
+                    data = await conn.fetch(
+                        "SELECT id, name, created_at, last_interaction, size, type, NUll as parent_folder_id "
+                        "FROM files WHERE owner_id = $1 AND folder_id = $2 "
+                        "UNION ALL "
+                        "SELECT id, name, created_at, last_interaction, NULL as size, NULL as type, parent_folder_id "
+                        "FROM folders WHERE owner_id = $1 and parent_folder_id = $2 "
+                        "ORDER BY {sort_by} {order}", user_id, location
+                    )
 
-                    folders = await conn.fetch("SELECT id, name, created_at, last_interaction, parent_folder_id "
-                                               "FROM folders WHERE owner_id = $1 and parent_folder_id = $2 "
-                                               , user_id, location)
-
+            if not location:
                 user_dict = dict(user_data)
-                file_list = [dict(files) for files in files]
-                folder_list = [dict(folders) for folders in folders]
-                formated_file_list = format_db_returning_objects(file_list)
-                formated_folder_list = format_db_returning_objects(folder_list)
+            folder_files_list_of_records = [dict(record) for record in data]
+            formated_folder_files_list_of_records = format_db_returning_objects(folder_files_list_of_records)
+
+            if not location:
                 return {
                     "user": user_dict,
-                    "files": formated_file_list,
-                    "folders": formated_folder_list,
+                    "files_and_folders": formated_folder_files_list_of_records,
                 }
+            return {
+                "files_and_folders": formated_folder_files_list_of_records
+            }
 
     async def check_if_user_has_enough_space(self, user_id, size):
         async with self.db.acquire() as conn:
