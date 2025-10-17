@@ -1,6 +1,6 @@
 from typing import Annotated,Literal
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, Header, Query
-from app.schemas.schemas import RegisterUser, UploadHeaders, FolderHeaders, FolderContents
+from app.schemas.schemas import RegisterUser, UploadHeaders, FolderHeaders, FolderContents, FolderContentQuery
 from fastapi.security import OAuth2PasswordRequestForm
 from app.dependencies import get_token_and_decode
 from fastapi.responses import JSONResponse
@@ -41,9 +41,9 @@ def create_user_routes(user_services, auth_services, storage_services, aws_servi
 
     @user_routes.get("/drive", response_model=FolderContents)
     async def get_root_content(user_id: Annotated[str, Depends(get_token_and_decode)],
-                               sort_by: Annotated[Literal["name", "created_at", "last_interaction"], Query()]
-                               = "last_interaction", order: Annotated[Literal["DESC", "ASC"], Query()] = "ASC"):
-        data = await storage_services.retrieve_folder_content(user_id, sort_by, order)
+                               query: Annotated[FolderContentQuery, Query()]):
+
+        data = await storage_services.retrieve_folder_content(user_id, query.sort_by, query.order)
         return data
 
     @user_routes.post("/profile_photo")

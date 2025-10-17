@@ -58,3 +58,8 @@ class FolderContents(BaseModel):
     """
     user: Optional[UserInfo] = None  # Only present at root
     files_and_folders: list[FolderOrFileInfo]
+
+
+class FolderContentQuery(BaseModel):
+    sort_by : Literal["name", "created_at", "last_interaction"] = "last_interaction"
+    order : Literal["DESC", "ASC"] = "ASC"
