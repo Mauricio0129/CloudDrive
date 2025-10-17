@@ -8,10 +8,11 @@ class StorageServices:
     def __init__(self, db):
         self.db = db
 
-## we have to compare with the 3 params to be 100% sure the file is actually a users file
-## this is because more than 1 user could have files at root so using the 3 params guarantees 100% accuracy to determine
-## if the user is the actual owner
     async def get_file_for_user(self, user_id, folder_id, file_name) -> str | None:
+        """
+        Verify file ownership by checking owner_id, folder_id, and filename.
+        Returns filename if found, None otherwise.
+        """
         async with self.db.acquire() as conn:
             if folder_id:
                 row = await conn.fetchrow("SELECT name FROM files WHERE owner_id = $1 AND folder_id = $2 AND name = $3",
@@ -20,22 +21,26 @@ class StorageServices:
                 row = await conn.fetchrow("SELECT name FROM files WHERE owner_id = $1 AND folder_id IS NULL AND name = $2",
                                           user_id, file_name)
             if row:
-                return str(row["name"])  ## we return string of the file name to later implement duplicates logic
+                return str(row["name"])
             return None
 
 
     async def get_folder_for_user(self, user_id, folder_id) -> str | bool:
+        """
+        Verify folder ownership. Returns folder name if found, False if not found, True if no folder_id provided.
+        """
         if folder_id:
             async with self.db.acquire() as conn:
                 row = await conn.fetchrow("SELECT name FROM folders WHERE owner_id = $1 AND id = $2"
                                           , user_id, folder_id,)
                 if row:
-                    return str(row["name"])##we return string of the file name to later implement duplicates logic
+                    return str(row["name"])
                 return False
         return True
 
     @staticmethod
     async def calculate_file_size(file: UploadFile) -> int:
+        """Calculate file size by reading in 1MB chunks. Resets file pointer to start when complete."""
         size = 0
         read_size = 1048576
         while True:
@@ -43,12 +48,12 @@ class StorageServices:
             if not chunk:
                 break
             size += len(chunk)
-        await file.seek(0) ##we reset the position at the beginning of the file for any subsequent operations
+        await file.seek(0)
         return size
 
-## In web context we use base of 10 logic to calculate size, and they show sizes in whole numbers not decimals
     @staticmethod
     def format_file_size(size: int) -> str:
+        """Format bytes to human-readable string (B, KB, MB) using base-10 calculation."""
         if size >= 1000000:
             size = size // 1000000
             size = str(size) + "MB"
@@ -61,6 +66,10 @@ class StorageServices:
 
     @staticmethod
     async def adjust_user_storage(user_id, file_size, conn):
+        """
+        Deduct file size from user's available storage.
+        Raises 413 error if insufficient space available.
+        """
         size_to_subtract_from_user_storage = file_size // 1024
         available = await conn.fetchval(
             "SELECT available_storage_kb FROM users WHERE id = $1", user_id
@@ -74,6 +83,10 @@ class StorageServices:
                                             size_to_subtract_from_user_storage, user_id)
 
     async def register_file(self, file: UploadFile, user_id, folder_id) ->  str:
+        """
+        Register new file in database after validation.
+        Validates file uniqueness, folder existence, and available storage.
+        """
         path = Path(file.filename)
         name = path.stem
         ext = path.suffix.lstrip('.')
@@ -84,13 +97,12 @@ class StorageServices:
         if not await self.get_folder_for_user(user_id, folder_id):
             raise HTTPException(status_code=400, detail="Folder not found")
 
-        size = await self.calculate_file_size(file)  ## calculate file size asynchronously
+        size = await self.calculate_file_size(file)
         size_in_bytes = size
-        size = self.format_file_size(size)  ## format file size(e.g, bytes to KB, MB)
+        size = self.format_file_size(size)
 
         async with self.db.acquire() as conn:
             async with conn.transaction():
-
                 await self.adjust_user_storage(user_id, size_in_bytes, conn)
 
                 row = await conn.fetchrow(
@@ -101,6 +113,7 @@ class StorageServices:
         return str(row["name"])
 
     async def check_folder_exists_at_location(self, folder_name, parent_folder_id, owner_id)-> str | None:
+        """Check if folder with given name exists at specified location for this user."""
         async with self.db.acquire() as conn:
             if parent_folder_id:
                 row = await conn.fetchrow(
@@ -118,6 +131,7 @@ class StorageServices:
             return None
 
     async def validate_parent_folder(self, parent_folder_id, owner_id) -> bool | None:
+        """Verify that parent folder exists and belongs to user."""
         async with self.db.acquire() as conn:
             row = await conn.fetchrow(
                 "SELECT name FROM folders WHERE id = $1 AND owner_id = $2",
@@ -126,25 +140,28 @@ class StorageServices:
             return bool(row)
 
     async def register_folder(self, folder_name, parent_folder_id, owner_id) -> str:
-        if parent_folder_id: ## If we got passed a parent_folder_id we validate its existence
+        """
+        Create new folder after validating parent folder existence and uniqueness at location.
+        Raises 404 if parent folder not found, 409 if folder already exists at location.
+        """
+        if parent_folder_id:
             if not await self.validate_parent_folder(parent_folder_id, owner_id):
                 raise HTTPException(status_code=404, detail="Parent folder not found")
 
-        ## Now we validate if the folder doesn't exist
         if await self.check_folder_exists_at_location(folder_name, parent_folder_id, owner_id):
             raise HTTPException(status_code=409, detail=f"Folder '{folder_name}' already exists in this location")
 
-        ## If both conditions are meet meaning the parent folder exist or is null meaning is a root folder
-        ## And the folder doesn't already exist at this location we register it
         async with self.db.acquire() as conn:
             row = await conn.fetchrow("INSERT INTO folders (name, parent_folder_id, owner_id)" 
                                       "VALUES ($1, $2, $3) RETURNING name", folder_name, parent_folder_id, owner_id)
             return str(row["name"])
 
-    ## im calling the parameter location though technically is the parent_folder id but since its note called like that
-    ## for the file bc for the file would be the folder_id it belongs to, but it also marks location for it, I decided to
-    ## call it location and since the default entry root doest in
     async def retrieve_folder_content(self, user_id, sort_by, order, location=None):
+        """
+        Retrieve files and folders at specified location (or root if None).
+        Uses UNION query to merge and sort files/folders together.
+        User info only included when retrieving root directory.
+        """
         async with self.db.acquire() as conn:
             async with conn.transaction():
 
@@ -186,6 +203,7 @@ class StorageServices:
             }
 
     async def check_if_user_has_enough_space(self, user_id, size):
+        """Verify user has sufficient storage space. Raises 403 if insufficient."""
         async with self.db.acquire() as conn:
             row = await conn.fetchrow(
                 "SELECT available_storage_in_bytes FROM users WHERE id = $1",
