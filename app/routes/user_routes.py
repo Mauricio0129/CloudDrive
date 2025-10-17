@@ -1,6 +1,6 @@
 from typing import Annotated,Literal
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, Header, Query
-from app.schemas.schemas import RegisterUser, UploadHeaders, FolderHeaders, FolderContents, FolderContentQuery
+from app.schemas.schemas import RegisterUser, UploadHeaders, FolderCreationBody, FolderContents, FolderContentQuery
 from fastapi.security import OAuth2PasswordRequestForm
 from app.dependencies import get_token_and_decode
 from fastapi.responses import JSONResponse
@@ -33,10 +33,10 @@ def create_user_routes(user_services, auth_services, storage_services, aws_servi
         return {"message": f"File: {stored_file} successfully uploaded"}
 
     @user_routes.post("/folder")
-    async def create_folder(user_id: Annotated[str, Depends(get_token_and_decode)],
-                            folder_info :Annotated[FolderHeaders, Header()]):
-        folder_name = await storage_services.register_folder(folder_info.x_folder_name,
-                                                           folder_info.x_parent_folder_id, user_id)
+    async def create_folder(user_id: Annotated[str, Depends(get_token_and_decode)], folder_info : FolderCreationBody):
+
+        folder_name = await storage_services.register_folder(folder_info.folder_name,
+                                                           folder_info.parent_folder_id, user_id)
         return {"message": f"Folder: {folder_name} successfully created"}
 
     @user_routes.get("/drive", response_model=FolderContents)

@@ -28,13 +28,16 @@ class UploadHeaders(BaseModel):
     x_folder_id: Annotated[Optional[str], Field(min_length=36, max_length=36)] = None
     x_file_folder_conflict: Optional[Literal["Replace", "Keep"]] = None
 
-class FolderHeaders(BaseModel):
+class FolderCreationBody(BaseModel):
     """
-    Headers for folder creation endpoint.
+    Body for folder creation endpoint.
     parent_folder_id: Optional, folders can be created at root.
     """
-    x_parent_folder_id: Annotated[Optional[str], Field(min_length=36, max_length=36)] = None
-    x_folder_name: str = Field(min_length=3, max_length=25)
+    parent_folder_id: Annotated[Optional[str], Field(
+        min_length=36,
+        max_length=36,
+        description= "Not required when making root level folders")] = None
+    folder_name: str = Field(min_length=3, max_length=25)
 
 class FolderOrFileInfo(BaseModel):
     id: str
