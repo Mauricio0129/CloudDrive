@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from fastapi.responses import JSONResponse
 import jwt
 
 class AuthServices:
@@ -14,7 +15,7 @@ class AuthServices:
     def verify_password(self, plain_password, hashed_password) -> bool:
         return self.pwd_context.verify(plain_password, hashed_password)
 
-    def create_access_token(self, data: dict) -> str:
+    def create_access_token(self, data: dict) -> JSONResponse:
         expires = datetime.now(timezone.utc) + timedelta(minutes=self.access_token_expire_minutes)
         data.update({"exp": expires})
         encoded_jwt = jwt.encode(data, key=self.secret_key, algorithm=self.algorithm)

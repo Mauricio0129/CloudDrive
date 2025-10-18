@@ -18,11 +18,11 @@ def create_user_routes(user_services, auth_services, storage_services, aws_servi
 
     @user_routes.post("/login")
     async def login_user(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
-        user = await user_services.get_user(form_data.username)
-        if not auth_services.verify_password(form_data.password, user.password):
+        user = await user_services.get_user_id_password(form_data.username)
+        if not auth_services.verify_password(form_data.password, user["password"]):
             raise HTTPException(status_code=401, detail="Incorrect Credentials")
         return {
-            "access_token": auth_services.create_access_token(data={"sub": user.id}),
+            "access_token": auth_services.create_access_token(data={"sub": user["id"]}),
             "token_type": "bearer"
         }
 
