@@ -13,7 +13,7 @@ class UserInDB(BaseModel):
     User database model with hashed password.
     UUID v4 is 36 chars, bcrypt hashes are 60 chars.
     """
-    id: str = Field(min_length=3, max_length=36)
+    id: str = Field(min_length=36, max_length=36)
     username: str = Field(min_length=3, max_length=15)
     email: str = Field(min_length=3, max_length=40)
     password: str = Field(min_length=3, max_length=60)
@@ -74,3 +74,8 @@ class FolderContents(BaseModel):
 class FolderContentQuery(BaseModel):
     sort_by : Literal["name", "created_at", "last_interaction"] = "last_interaction"
     order : Literal["DESC", "ASC"] = "ASC"
+
+
+class UpdateFolderName(BaseModel):
+    new_name: str = Field(min_length=1, max_length=25)
+    parent_folder_id: Annotated[Optional[str], Field(min_length=36, max_length=36)] = None

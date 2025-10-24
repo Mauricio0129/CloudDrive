@@ -10,10 +10,10 @@ class StorageServices:
     def __init__(self, db):
         self.db = db
 
-    async def get_file_for_user(self, user_id, folder_id, file_name) -> str | None:
+    async def verify_file_existence_ownership(self, user_id, folder_id, file_name) -> str | bool:
         """
         Verify file ownership by checking owner_id, folder_id, and filename.
-        Returns filename if found, None otherwise.
+        Returns filename if found, False otherwise.
         """
         async with self.db.acquire() as conn:
             if folder_id:
@@ -24,9 +24,9 @@ class StorageServices:
                                           user_id, file_name)
             if row:
                 return str(row["name"])
-            return None
+            return False
 
-    async def get_folder_for_user(self, user_id, folder_id) -> str | bool:
+    async def verify_folder_existence_ownership(self, user_id, folder_id) -> str | bool:
         """
         Verify folder ownership and existence.
         Returns folder name if found, False otherwise.
@@ -39,35 +39,35 @@ class StorageServices:
             return False
 
 
-    async def check_if_folder_exist_at_location(self, folder_name, parent_folder_id, owner_id)-> str | None:
+    async def check_if_folder_name_in_use_at_location(self, user_id, folder_name, parent_folder_id = None)-> str | bool:
         """Check if folder with given name exists at specified location for this user."""
         async with self.db.acquire() as conn:
             if parent_folder_id:
                 row = await conn.fetchrow(
                     "SELECT name FROM folders WHERE name = $1 AND parent_folder_id = $2 AND owner_id = $3",
-                    folder_name, parent_folder_id, owner_id
+                    folder_name, parent_folder_id, user_id
 
                 )
             else:
                 row = await conn.fetchrow(
                     "SELECT name FROM folders WHERE name = $1 AND parent_folder_id IS NULL AND owner_id = $2",
-                    folder_name, owner_id
+                    folder_name, user_id
                 )
             if row:
                 return str(row["name"])
-            return None
+            return False
 
-    async def verify_file_and_generate_aws_presigned_url(self, file: UploadFileInfo, user_id) ->  dict:
+    async def verify_file_and_generate_aws_presigned_upload_url(self, file: UploadFileInfo, user_id) ->  dict:
 
         if "/" in file.file_name or "\\" in file.file_name:
             raise HTTPException(status_code=400, detail="Slashes are not allowed in file_name")
 
         if file.folder_id:
-            if not await self.get_folder_for_user(user_id, file.folder_id):
+            if not await self.verify_folder_existence_ownership(user_id, file.folder_id):
                 raise HTTPException(status_code=400, detail="Folder not found")
 
         if  not file.file_conflict:
-            if await self.get_file_for_user(user_id, file.folder_id, file.file_name):
+            if await self.verify_file_existence_ownership(user_id, file.folder_id, file.file_name):
                 raise HTTPException(status_code=409, detail="File already exists use FILE-CONFLICT parameter to solve")
             return AwsServices.generate_presigned_upload_url(file.folder_id, user_id, file.file_size_in_bytes,
                                                              file.file_name)
@@ -80,7 +80,7 @@ class StorageServices:
         attempts = 0
         max_attempts = 10  # Safety limit
 
-        while await self.get_file_for_user(user_id, file.folder_id, new_name):
+        while await self.verify_file_existence_ownership(user_id, file.folder_id, new_name):
             attempts += 1
             if attempts >= max_attempts:
                 raise HTTPException(status_code=400, detail="Unable to generate unique filename. Please rename your file.")
@@ -104,30 +104,21 @@ class StorageServices:
             name, ext = file_name.rsplit('.', 1)
             return name + f" (1).{ext}"
 
-    async def validate_parent_folder(self, parent_folder_id, owner_id) -> bool | None:
-        """Verify that parent folder exists and belongs to user."""
-        async with self.db.acquire() as conn:
-            row = await conn.fetchrow(
-                "SELECT name FROM folders WHERE id = $1 AND owner_id = $2",
-                parent_folder_id, owner_id
-            )
-            return bool(row)
-
-    async def register_folder(self, folder_name, parent_folder_id, owner_id) -> str:
+    async def register_folder(self, folder_name, parent_folder_id, user_id) -> str:
         """
         Create new folder after validating parent folder existence and uniqueness at location.
         Raises 404 if parent folder not found, 409 if folder already exists at location.
         """
         if parent_folder_id:
-            if not await self.validate_parent_folder(parent_folder_id, owner_id):
+            if not await self.verify_folder_existence_ownership(user_id, parent_folder_id):
                 raise HTTPException(status_code=404, detail="Parent folder not found")
 
-        if await self.check_if_folder_exist_at_location(folder_name, parent_folder_id, owner_id):
+        if await self.check_if_folder_name_in_use_at_location(user_id, folder_name, parent_folder_id):
             raise HTTPException(status_code=409, detail=f"Folder '{folder_name}' already exists in this location")
 
         async with self.db.acquire() as conn:
             row = await conn.fetchrow("INSERT INTO folders (name, parent_folder_id, owner_id)" 
-                                      "VALUES ($1, $2, $3) RETURNING name", folder_name, parent_folder_id, owner_id)
+                                      "VALUES ($1, $2, $3) RETURNING name", folder_name, parent_folder_id, user_id)
             return str(row["name"])
 
     async def retrieve_folder_content(self, user_id, sort_by, order, location=None):
@@ -185,3 +176,12 @@ class StorageServices:
             )
         if size > row["available_storage_in_bytes"]:
             raise HTTPException(status_code=403, detail="User doesnt have enough space")
+
+    async def rename_folder(self, user_id, parent_folder_id,  folder_id, new_name):
+        if await self.verify_folder_existence_ownership(user_id, folder_id):
+            if await self.check_if_folder_name_in_use_at_location(user_id, new_name, parent_folder_id):
+                raise HTTPException(status_code=409, detail=f"Folder '{new_name}' already exists in this location")
+            async with self.db.acquire() as conn:
+                await conn.execute("UPDATE folders SET name = $1 WHERE id = $2", new_name, folder_id)
+            return {"message": f"Folder renamed to '{new_name}'"}
+        raise HTTPException(status_code=404, detail="Folder doesn't exist")
