@@ -1,7 +1,6 @@
-import uuid
-
-from pydantic import BaseModel, Field, EmailStr, SecretStr
+from pydantic import BaseModel, Field, EmailStr, SecretStr, model_validator, ValidationError
 from typing import Literal, Annotated, Optional
+from ..helpers.file_utils import is_allowed_extension
 
 class RegisterUser(BaseModel):
     """User registration request data."""
@@ -19,14 +18,23 @@ class UserInDB(BaseModel):
     email: str = Field(min_length=3, max_length=40)
     password: str = Field(min_length=3, max_length=60)
 
-class UploadHeaders(BaseModel):
+class UploadFileInfo(BaseModel):
     """
     Headers for file upload endpoint.
     folder_id: Optional, files can be uploaded to root.
     conflict: Optional, only needed when name collision detected.
     """
-    x_folder_id: Annotated[Optional[str], Field(min_length=36, max_length=36)] = None
-    x_file_folder_conflict: Optional[Literal["Replace", "Keep"]] = None
+    file_name: str = Field(min_length=3, max_length=50)
+    file_size_in_bytes: int
+    folder_id: Annotated[Optional[str], Field(min_length=36, max_length=36)] = None
+    file_conflict: Optional[Literal["Replace", "Keep"]] = None
+
+    @model_validator(mode="after")
+    def validate_extension(self):
+        ext = is_allowed_extension(self.file_name)
+        if ext is True:
+            return self
+        raise ValueError(f"Unsupported file extension: '{ext or '(none)'}'")
 
 class FolderCreationBody(BaseModel):
     """

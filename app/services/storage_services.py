@@ -1,7 +1,9 @@
-from fastapi import UploadFile
-from pathlib import Path
+import re
+from .aws import AwsServices
 from fastapi import HTTPException
-from app.dependencies import format_db_returning_objects
+from ..schemas.schemas import UploadFileInfo
+from ..helpers.file_utils import format_db_returning_objects
+
 
 # noinspection SqlNoDataSourceInspection
 class StorageServices:
@@ -24,95 +26,20 @@ class StorageServices:
                 return str(row["name"])
             return None
 
-
     async def get_folder_for_user(self, user_id, folder_id) -> str | bool:
         """
-        Verify folder ownership. Returns folder name if found, False if not found, True if no folder_id provided.
+        Verify folder ownership and existence.
+        Returns folder name if found, False otherwise.
         """
-        if folder_id:
-            async with self.db.acquire() as conn:
-                row = await conn.fetchrow("SELECT name FROM folders WHERE owner_id = $1 AND id = $2"
-                                          , user_id, folder_id,)
-                if row:
-                    return str(row["name"])
-                return False
-        return True
-
-    @staticmethod
-    async def calculate_file_size(file: UploadFile) -> int:
-        """Calculate file size by reading in 1MB chunks. Resets file pointer to start when complete."""
-        size = 0
-        read_size = 1048576
-        while True:
-            chunk = await file.read(read_size)
-            if not chunk:
-                break
-            size += len(chunk)
-        await file.seek(0)
-        return size
-
-    @staticmethod
-    def format_file_size(size: int) -> str:
-        """Format bytes to human-readable string (B, KB, MB) using base-10 calculation."""
-        if size >= 1000000:
-            size = size // 1000000
-            size = str(size) + "MB"
-        elif size >= 1000:
-            size = size // 1000
-            size = str(size) + "KB"
-        else:
-            size = str(size) + "B"
-        return size
-
-    @staticmethod
-    async def adjust_user_storage(user_id, file_size, conn):
-        """
-        Deduct file size from user's available storage.
-        Raises 413 error if insufficient space available.
-        """
-        size_to_subtract_from_user_storage = file_size // 1024
-        available = await conn.fetchval(
-            "SELECT available_storage_kb FROM users WHERE id = $1", user_id
-        )
-
-        if available < size_to_subtract_from_user_storage:
-            raise HTTPException(status_code=413, detail="Not enough storage space")
-
-        update_storage = await conn.execute("UPDATE users SET available_storage_kb"
-                                            " = available_storage_kb - $1 WHERE id = $2",
-                                            size_to_subtract_from_user_storage, user_id)
-
-    async def register_file(self, file: UploadFile, user_id, folder_id) ->  str:
-        """
-        Register new file in database after validation.
-        Validates file uniqueness, folder existence, and available storage.
-        """
-        path = Path(file.filename)
-        name = path.stem
-        ext = path.suffix.lstrip('.')
-
-        if await self.get_file_for_user(user_id, folder_id, name):
-            raise HTTPException(status_code=400, detail="File already exists use X-FILE-CONFLICT header to solve")
-
-        if not await self.get_folder_for_user(user_id, folder_id):
-            raise HTTPException(status_code=400, detail="Folder not found")
-
-        size = await self.calculate_file_size(file)
-        size_in_bytes = size
-        size = self.format_file_size(size)
-
         async with self.db.acquire() as conn:
-            async with conn.transaction():
-                await self.adjust_user_storage(user_id, size_in_bytes, conn)
+            row = await conn.fetchrow("SELECT name FROM folders WHERE owner_id = $1 AND id = $2",
+                                      user_id, folder_id)
+            if row:
+                return str(row["name"])
+            return False
 
-                row = await conn.fetchrow(
-                    "INSERT INTO files (name, size, type, owner_id, folder_id) "
-                    "VALUES ($1, $2, $3, $4, $5) RETURNING name",
-                    name, size, ext, user_id, folder_id)
 
-        return str(row["name"])
-
-    async def check_folder_exists_at_location(self, folder_name, parent_folder_id, owner_id)-> str | None:
+    async def check_if_folder_exist_at_location(self, folder_name, parent_folder_id, owner_id)-> str | None:
         """Check if folder with given name exists at specified location for this user."""
         async with self.db.acquire() as conn:
             if parent_folder_id:
@@ -129,6 +56,53 @@ class StorageServices:
             if row:
                 return str(row["name"])
             return None
+
+    async def verify_file_and_generate_aws_presigned_url(self, file: UploadFileInfo, user_id) ->  dict:
+
+        if "/" in file.file_name or "\\" in file.file_name:
+            raise HTTPException(status_code=400, detail="Slashes are not allowed in file_name")
+
+        if file.folder_id:
+            if not await self.get_folder_for_user(user_id, file.folder_id):
+                raise HTTPException(status_code=400, detail="Folder not found")
+
+        if  not file.file_conflict:
+            if await self.get_file_for_user(user_id, file.folder_id, file.file_name):
+                raise HTTPException(status_code=409, detail="File already exists use FILE-CONFLICT parameter to solve")
+            return AwsServices.generate_presigned_upload_url(file.folder_id, user_id, file.file_size_in_bytes,
+                                                             file.file_name)
+
+        if file.file_conflict == "Replace":
+            return AwsServices.generate_presigned_upload_url(file.folder_id, user_id, file.file_size_in_bytes,
+                                                             file.file_name)
+
+        new_name = self.generate_unique_filename(file.file_name)
+        attempts = 0
+        max_attempts = 10  # Safety limit
+
+        while await self.get_file_for_user(user_id, file.folder_id, new_name):
+            attempts += 1
+            if attempts >= max_attempts:
+                raise HTTPException(status_code=400, detail="Unable to generate unique filename. Please rename your file.")
+            new_name = self.generate_unique_filename(new_name)
+        return AwsServices.generate_presigned_upload_url(file.folder_id, user_id, file.file_size_in_bytes, new_name)
+
+
+    @staticmethod
+    def generate_unique_filename(file_name):
+        pattern = r"(\(\d+\))\.\w+"
+        match = re.search(pattern, file_name)
+
+        if match:
+            uncut_name = match.group(1) ## (1).png
+            cut_left_parenthesis = uncut_name.split("(", 1)[1] ## 1).png
+            cut_right_parenthesis = cut_left_parenthesis.rsplit(")", 1)[0] ## 1
+            number = int(cut_right_parenthesis) ## 1 -> int
+            new_number = number + 1 ## 1+
+            return file_name.replace(f"({number})", f"({new_number})")
+        else:
+            name, ext = file_name.rsplit('.', 1)
+            return name + f" (1).{ext}"
 
     async def validate_parent_folder(self, parent_folder_id, owner_id) -> bool | None:
         """Verify that parent folder exists and belongs to user."""
@@ -148,7 +122,7 @@ class StorageServices:
             if not await self.validate_parent_folder(parent_folder_id, owner_id):
                 raise HTTPException(status_code=404, detail="Parent folder not found")
 
-        if await self.check_folder_exists_at_location(folder_name, parent_folder_id, owner_id):
+        if await self.check_if_folder_exist_at_location(folder_name, parent_folder_id, owner_id):
             raise HTTPException(status_code=409, detail=f"Folder '{folder_name}' already exists in this location")
 
         async with self.db.acquire() as conn:
@@ -185,7 +159,7 @@ class StorageServices:
                         "UNION ALL "
                         "SELECT id, name, created_at, last_interaction, NULL as size, NULL as type, parent_folder_id "
                         "FROM folders WHERE owner_id = $1 and parent_folder_id = $2 "
-                        "ORDER BY {sort_by} {order}", user_id, location
+                        f"ORDER BY {sort_by} {order}", user_id, location
                     )
 
             if not location:

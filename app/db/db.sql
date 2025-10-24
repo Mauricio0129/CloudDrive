@@ -6,6 +6,8 @@ CREATE TABLE users (
     username VARCHAR(15) NOT NULL UNIQUE,
     email VARCHAR(40) NOT NULL UNIQUE,
     password VARCHAR(60) NOT NULL,
+    available_storage_in_bytes BIGINT NOT NULL DEFAULT 5368709120,  -- 5GB default
+    total_storage_in_bytes BIGINT NOT NULL DEFAULT 5368709120,
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
@@ -24,7 +26,7 @@ CREATE TABLE folders (
 CREATE TABLE files (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(50) NOT NULL,
-    size VARCHAR(8) NOT NULL,
+    size BIGINT NOT NULL,  -- Changed from VARCHAR to BIGINT for proper sorting
     type VARCHAR(8) NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     last_interaction TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -56,23 +58,3 @@ CREATE TABLE permissions (
     write BOOLEAN NOT NULL DEFAULT FALSE,
     read BOOLEAN NOT NULL DEFAULT FALSE
 );
-
--- Trigger function to update folder last_interaction when files are inserted
-CREATE OR REPLACE FUNCTION update_folder_last_interaction()
-RETURNS TRIGGER AS $$
-BEGIN
-    IF NEW.folder_id IS NOT NULL THEN
-        UPDATE folders
-        SET last_interaction = NOW()
-        WHERE id = NEW.folder_id;
-    END IF;
-
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- Create the trigger
-CREATE TRIGGER trigger_update_folder_last_interaction
-    AFTER INSERT ON files
-    FOR EACH ROW
-    EXECUTE FUNCTION update_folder_last_interaction();

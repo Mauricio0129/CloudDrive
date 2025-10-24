@@ -1,6 +1,6 @@
-from typing import Annotated,Literal
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, Header, Query
-from app.schemas.schemas import RegisterUser, UploadHeaders, FolderCreationBody, FolderContents, FolderContentQuery
+from typing import Annotated
+from fastapi import APIRouter, HTTPException, Depends, Query
+from app.schemas.schemas import RegisterUser, UploadFileInfo, FolderCreationBody, FolderContents, FolderContentQuery
 from fastapi.security import OAuth2PasswordRequestForm
 from app.dependencies import get_token_and_decode
 from fastapi.responses import JSONResponse
@@ -26,13 +26,7 @@ def create_user_routes(user_services, auth_services, storage_services, aws_servi
             "token_type": "bearer"
         }
 
-    @user_routes.post("/upload")
-    async def upload_file(user_id: Annotated[str, Depends(get_token_and_decode)], file : UploadFile,
-            upload_headers: Annotated[UploadHeaders, Header()]):
-        stored_file = await storage_services.register_file(file, user_id, upload_headers.x_folder_id)
-        return {"message": f"File: {stored_file} successfully uploaded"}
-
-    @user_routes.post("/folder")
+    @user_routes.post("/drive")
     async def create_folder(user_id: Annotated[str, Depends(get_token_and_decode)], folder_info : FolderCreationBody):
 
         folder_name = await storage_services.register_folder(folder_info.folder_name,
@@ -45,6 +39,17 @@ def create_user_routes(user_services, auth_services, storage_services, aws_servi
 
         data = await storage_services.retrieve_folder_content(user_id, query.sort_by, query.order)
         return data
+
+    @user_routes.get("/drive/{folder_id}", response_model=FolderContents)
+    async def get_folder_content(user_id: Annotated[str, Depends(get_token_and_decode)],
+                                 query: Annotated[FolderContentQuery, Query()], folder_id: str):
+
+        data = await storage_services.retrieve_folder_content(user_id, query.sort_by, query.order, folder_id)
+        return data
+
+    @user_routes.post("/file")
+    async def upload_file(user_id: Annotated[str, Depends(get_token_and_decode)], file:UploadFileInfo):
+        return await storage_services.verify_file_and_generate_aws_presigned_url(file, user_id)
 
     @user_routes.post("/profile_photo")
     async def upload_profile_image(user_id: Annotated[str, Depends(get_token_and_decode)], photo_size_in_bytes: int):
