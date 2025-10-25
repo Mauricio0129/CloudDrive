@@ -26,7 +26,7 @@ CREATE TABLE folders (
 CREATE TABLE files (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(50) NOT NULL,
-    size BIGINT NOT NULL,  -- Changed from VARCHAR to BIGINT for proper sorting
+    size_in_bytes BIGINT NOT NULL,  -- Changed from VARCHAR to BIGINT for proper sorting
     type VARCHAR(8) NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     last_interaction TIMESTAMP NOT NULL DEFAULT NOW(),

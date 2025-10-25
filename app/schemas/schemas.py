@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, EmailStr, SecretStr, model_validator, ValidationError
+from pydantic import BaseModel, Field, EmailStr, SecretStr, model_validator
 from typing import Literal, Annotated, Optional
 from ..helpers.file_utils import is_allowed_extension
 
@@ -70,11 +70,9 @@ class FolderContents(BaseModel):
     user: Optional[UserInfo] = None  # Only present at root
     files_and_folders: list[FolderOrFileInfo]
 
-
 class FolderContentQuery(BaseModel):
     sort_by : Literal["name", "created_at", "last_interaction"] = "last_interaction"
     order : Literal["DESC", "ASC"] = "ASC"
-
 
 class UpdateFolderName(BaseModel):
     new_name: str = Field(min_length=1, max_length=25)
