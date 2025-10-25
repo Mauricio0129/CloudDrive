@@ -33,7 +33,7 @@ class StorageServices:
                 return str(row["name"])
             return False
 
-    async def file_name_taken(self, user_id, folder_id, file_name) -> str | bool:
+    async def file_name_taken(self, user_id, file_name, folder_id = None) -> str | bool:
         """
         Check if a filename is already used by the user in the specified folder.
         This is used when uploading or renaming to avoid duplicate filenames in the same folder.
@@ -148,7 +148,7 @@ class StorageServices:
                 raise HTTPException(status_code=400, detail="Folder not found")
 
         if not file.file_conflict:
-            if await self.file_name_taken(user_id, file.folder_id, file.file_name):
+            if await self.file_name_taken(user_id, file.file_name, file.folder_id):
                 raise HTTPException(status_code=409, detail="File already exists use FILE-CONFLICT parameter to solve")
 
             filename_for_s3 = await self.temp_log_file_to_be_verified(user_id, file.folder_id, file.file_name,
@@ -168,7 +168,7 @@ class StorageServices:
         attempts = 0
         max_attempts = 10
 
-        while await self.file_name_taken(user_id, file.folder_id, new_name):
+        while await self.file_name_taken(user_id, new_name, file.folder_id):
             attempts += 1
             if attempts >= max_attempts:
                 raise HTTPException(status_code=400,
@@ -300,3 +300,12 @@ class StorageServices:
             name, file_type, folder_id = await self.get_file_metadata_for_download(file_id)
             return AwsServices.generate_presigned_download_url(user_id, file_id, name, file_type, folder_id)
         raise HTTPException(status_code=404, detail="File doesn't exist")
+
+    async def rename_file(self, user_id, file_id, file_name, folder_id):
+        if not await self.verify_file_existence_ownership(user_id, file_id):
+            raise HTTPException(status_code=404, detail="File doesn't exist")
+        if await self.file_name_taken(user_id,file_name, folder_id):
+            raise HTTPException(status_code=409, detail=f"File '{file_name}' already exists in this location")
+        async with self.db.acquire() as conn:
+            await conn.execute("UPDATE files SET name = $1 WHERE id = $2", file_name, file_id)
+        return {"message": f"File renamed to '{file_name}'"}

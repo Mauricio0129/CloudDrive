@@ -77,3 +77,7 @@ class FolderContentQuery(BaseModel):
 class UpdateFolderName(BaseModel):
     new_name: str = Field(min_length=1, max_length=25)
     parent_folder_id: Annotated[Optional[str], Field(min_length=36, max_length=36)] = None
+
+class RenameFile(BaseModel):
+    file_name: Annotated[str, Field(min_length=3, max_length=50)]
+    folder_id: Annotated[Optional[str], Field(min_length=36, max_length=36)] = None
