@@ -11,9 +11,6 @@ class StorageServices:
         self.db = db
 
     async def verify_file_existence_ownership(self, user_id, file_id):
-        """
-        Checks if the file exists and is owned by the user.
-        """
         async with self.db.acquire() as conn:
             row = await conn.fetchrow("SELECT name FROM files WHERE owner_id = $1 AND id = $2",
                                       user_id, file_id)
@@ -22,10 +19,6 @@ class StorageServices:
             return False
 
     async def verify_folder_existence_ownership(self, user_id, folder_id) -> str | bool:
-        """
-        Verify folder ownership and existence.
-        Returns folder name if found, False otherwise.
-        """
         async with self.db.acquire() as conn:
             row = await conn.fetchrow("SELECT name FROM folders WHERE owner_id = $1 AND id = $2",
                                       user_id, folder_id)
@@ -76,7 +69,6 @@ class StorageServices:
         return str(row["id"])
 
     async def check_if_folder_name_in_use_at_location(self, user_id, folder_name, parent_folder_id = None)-> str | bool:
-        """Check if folder with given name exists at specified location for this user."""
         async with self.db.acquire() as conn:
             if parent_folder_id:
                 row = await conn.fetchrow(
@@ -183,15 +175,19 @@ class StorageServices:
 
     @staticmethod
     def generate_unique_filename(file_name):
+        """
+        Generate unique filename by incrementing number (e.g., 'photo (1).png' → 'photo (2).png').
+        Matches last '(number)' before extension. If no match, adds ' (1)' before extension.
+        """
         pattern = r"(\(\d+\))\.\w+"
         match = re.search(pattern, file_name)
 
         if match:
-            uncut_name = match.group(1) ## (1).png
-            cut_left_parenthesis = uncut_name.split("(", 1)[1] ## 1).png
-            cut_right_parenthesis = cut_left_parenthesis.rsplit(")", 1)[0] ## 1
-            number = int(cut_right_parenthesis) ## 1 -> int
-            new_number = number + 1 ## 1+
+            uncut_name = match.group(1)
+            cut_left_parenthesis = uncut_name.split("(", 1)[1]
+            cut_right_parenthesis = cut_left_parenthesis.rsplit(")", 1)[0]
+            number = int(cut_right_parenthesis)
+            new_number = number + 1
             return file_name.replace(f"({number})", f"({new_number})")
         else:
             name, ext = file_name.rsplit('.', 1)
@@ -261,7 +257,6 @@ class StorageServices:
             }
 
     async def check_if_user_has_enough_space(self, user_id, file_size_in_bytes):
-        """Verify user has sufficient storage space. Raises 403 if insufficient."""
         async with self.db.acquire() as conn:
             row = await conn.fetchrow(
                 "SELECT available_storage_in_bytes FROM users WHERE id = $1",
@@ -285,7 +280,6 @@ class StorageServices:
         raise HTTPException(status_code=404, detail="Folder doesn't exist")
 
     async def get_file_metadata_for_download(self, file_id):
-        """Get file name, type, and folder_id for download URL generation."""
         async with self.db.acquire() as conn:
             row = await conn.fetchrow("SELECT name, type, folder_id FROM files WHERE id = $1", file_id)
         return row["name"], row["type"], row["folder_id"]
@@ -302,9 +296,14 @@ class StorageServices:
         raise HTTPException(status_code=404, detail="File doesn't exist")
 
     async def rename_file(self, user_id, file_id, file_name, folder_id):
+        """
+        Rename file after verifying ownership and checking for name conflicts.
+        Verifies file ownership, checks if new name is taken at location, updates display name.
+        Returns success message on completion.
+        """
         if not await self.verify_file_existence_ownership(user_id, file_id):
             raise HTTPException(status_code=404, detail="File doesn't exist")
-        if await self.file_name_taken(user_id,file_name, folder_id):
+        if await self.file_name_taken(user_id, file_name, folder_id):
             raise HTTPException(status_code=409, detail=f"File '{file_name}' already exists in this location")
         async with self.db.acquire() as conn:
             await conn.execute("UPDATE files SET name = $1 WHERE id = $2", file_name, file_id)
