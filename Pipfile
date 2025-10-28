@@ -6,8 +6,11 @@ name = "pypi"
 [packages]
 fastapi = {extras = ["standard"], version = "*"}
 asyncpg = "*"
-passlib = {extras = ["bcrypt"], version = "*"}
 boto3 = {extras = ["crt"], version = "*"}
+pyjwt = "*"
+bcrypt = "==4.0.1"
+passlib = "*"
+uvicorn = "*"
 
 [dev-packages]
 

@@ -225,7 +225,7 @@ class StorageServices:
                                                     "FROM users WHERE id = $1", user_id)
 
                     data = await conn.fetch(
-                        "SELECT id, name, created_at, last_interaction, size, type "
+                        "SELECT id, name, created_at, last_interaction, size_in_bytes, type "
                         "FROM files WHERE owner_id = $1 AND folder_id IS NULL "
                         "UNION ALL "
                         "SELECT id, name, created_at, last_interaction, NULL as size, NULL as type "
@@ -234,10 +234,10 @@ class StorageServices:
                     )
                 else:
                     data = await conn.fetch(
-                        "SELECT id, name, created_at, last_interaction, size, type, NUll as parent_folder_id "
+                        "SELECT id, name, created_at, last_interaction, size_in_bytes, type, NUll as parent_folder_id "
                         "FROM files WHERE owner_id = $1 AND folder_id = $2 "
                         "UNION ALL "
-                        "SELECT id, name, created_at, last_interaction, NULL as size, NULL as type, parent_folder_id "
+                        "SELECT id, name, created_at, last_interaction, NULL as size_in_bytes, NULL as type, parent_folder_id "
                         "FROM folders WHERE owner_id = $1 and parent_folder_id = $2 "
                         f"ORDER BY {sort_by} {order}", user_id, location
                     )
@@ -276,7 +276,7 @@ class StorageServices:
             async with self.db.acquire() as conn:
                 await conn.execute("UPDATE folders SET name = $1 WHERE id = $2", new_name, folder_id)
 
-            return {"message": f"Folder renamed to '{new_name}'"}
+            return {"message": f"Folder renamed to: '{new_name}' "}
         raise HTTPException(status_code=404, detail="Folder doesn't exist")
 
     async def get_file_metadata_for_download(self, file_id):
