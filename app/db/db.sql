@@ -31,7 +31,7 @@ CREATE TABLE files (
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     last_interaction TIMESTAMP NOT NULL DEFAULT NOW(),
     owner_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    folder_id UUID REFERENCES folders(id) ON DELETE CASCADE,
+    parent_folder_id UUID REFERENCES folders(id) ON DELETE CASCADE,
     UNIQUE (folder_id, name, owner_id)
 );
 

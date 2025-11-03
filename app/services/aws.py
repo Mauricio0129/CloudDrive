@@ -30,12 +30,12 @@ class AwsServices:
         return response
 
     @staticmethod
-    def generate_presigned_upload_url(user_id, size, file_name, folder_id = None):
+    def generate_presigned_upload_url(user_id, size, file_name, parent_folder_id = None):
         buffer = round(size * 1.01)
-        if  folder_id:
+        if  parent_folder_id:
             response = s3.generate_presigned_post(
                 Bucket=bucket_name,
-                Key=f"files/{user_id}/{folder_id}/{file_name}",
+                Key=f"files/{user_id}/{parent_folder_id}/{file_name}",
                 Conditions=[["content-length-range", size, buffer]],
                 ExpiresIn=120
             )
@@ -49,8 +49,8 @@ class AwsServices:
         return response
 
     @staticmethod
-    def generate_presigned_download_url(user_id, file_id, file_name, ext,  folder_id = None):
-        filename = f"{file_name}.{ext}"
+    def generate_presigned_download_url(user_id, file_id, file_name, folder_id = None):
+        filename = f"{file_name}"
         if folder_id:
             response = s3.generate_presigned_url(
                 'get_object',

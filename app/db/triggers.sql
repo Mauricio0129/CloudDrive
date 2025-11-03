@@ -2,10 +2,10 @@
 CREATE OR REPLACE FUNCTION update_folder_last_interaction()
 RETURNS TRIGGER AS $$
 BEGIN
-    IF NEW.folder_id IS NOT NULL THEN
+    IF NEW.parent_folder_id IS NOT NULL THEN
         UPDATE folders
         SET last_interaction = NOW()
-        WHERE id = NEW.folder_id;
+        WHERE id = NEW.parent_folder_id;
     END IF;
 
     RETURN NEW;

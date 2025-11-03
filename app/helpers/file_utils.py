@@ -16,7 +16,7 @@ def get_ext(name: str) -> str:
     name = name.lower()
     return name.rsplit(".", 1)[1] if "." in name else ""
 
-def is_allowed_extension(file_name: str) -> bool:
+def is_allowed_extension(file_name: str) -> str | bool:
     ext = get_ext(file_name)
     return ext if ext not in allowed_extensions else True
 

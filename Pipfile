@@ -13,6 +13,8 @@ passlib = "*"
 uvicorn = "*"
 
 [dev-packages]
+pytest = "*"
+mypy = "*"
 
 [requires]
 python_version = "3.12"

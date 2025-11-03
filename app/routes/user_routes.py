@@ -56,7 +56,11 @@ def create_user_routes(user_services, auth_services, storage_services, aws_servi
 
     @user_routes.post("/file")
     async def upload_file(user_id: Annotated[str, Depends(get_token_and_decode)], file:UploadFileInfo):
-        return await storage_services.verify_file_and_generate_aws_presigned_upload_url(file, user_id)
+        if not file.file_conflict:
+            return await storage_services.upload_an_new_file(file, user_id)
+        if file.file_conflict == "Replace":
+            return await storage_services.replace_existing_file(file, user_id)
+        return await storage_services.keep_both_files(file, user_id)
 
     @user_routes.get("/file/{file_id}")
     async def get_file(user_id: Annotated[str, Depends(get_token_and_decode)],

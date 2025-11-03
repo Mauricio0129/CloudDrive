@@ -26,7 +26,7 @@ class UploadFileInfo(BaseModel):
     """
     file_name: str = Field(min_length=3, max_length=50)
     file_size_in_bytes: int
-    folder_id: Annotated[Optional[str], Field(min_length=36, max_length=36)] = None
+    parent_folder_id: Annotated[Optional[str], Field(min_length=36, max_length=36)] = None
     file_conflict: Optional[Literal["Replace", "Keep"]] = None
 
     @model_validator(mode="after")
@@ -50,7 +50,7 @@ class FolderCreationBody(BaseModel):
 class FolderOrFileInfo(BaseModel):
     id: str
     name: str
-    size: Optional[str] = None
+    size_in_bytes: Optional[int] = None
     type: Optional[str] = None
     created_at: str
     last_interaction: str
@@ -80,4 +80,11 @@ class UpdateFolderName(BaseModel):
 
 class RenameFile(BaseModel):
     file_name: Annotated[str, Field(min_length=3, max_length=50)]
-    folder_id: Annotated[Optional[str], Field(min_length=36, max_length=36)] = None
+    parent_folder_id: Annotated[Optional[str], Field(min_length=36, max_length=36)] = None
+
+    @model_validator(mode="after")
+    def validate_extension(self):
+        ext = is_allowed_extension(self.file_name)
+        if ext is True:
+            return self
+        raise ValueError(f"Unsupported file extension: '{ext or '(none)'}'")
