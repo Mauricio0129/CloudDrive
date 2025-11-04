@@ -278,7 +278,7 @@ class StorageServices:
             return AwsServices.generate_presigned_download_url(user_id, file_id, name, folder_id)
         raise HTTPException(status_code=404, detail="File doesn't exist")
 
-    async def rename_file(self, user_id, file_id, file_name, folder_id):
+    async def rename_file(self, user_id, file_id, file_name, parent_folder_id):
         """
         Rename file after verifying ownership and checking for name conflicts.
         Verifies file ownership, checks if new name is taken at location, updates display name.
@@ -286,7 +286,7 @@ class StorageServices:
         """
         if not await self.verify_file_existence_ownership(user_id, file_id):
             raise HTTPException(status_code=404, detail="File doesn't exist")
-        if await self.is_file_name_taken(user_id, file_name, folder_id):
+        if await self.is_file_name_taken(user_id, file_name, parent_folder_id):
             raise HTTPException(status_code=409, detail=f"File '{file_name}' already exists in this location")
         async with self.db.acquire() as conn:
             await conn.execute("UPDATE files SET name = $1 WHERE id = $2", file_name, file_id)

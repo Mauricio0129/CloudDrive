@@ -1,12 +1,13 @@
 FROM  python:3.12-alpine AS base
 
+ARG ENVIRONMENT
 ENV PYROOT=/pyroot
 ENV PYTHONUSERBASE=${PYROOT}
-ENV PATH=${PATH}:${PYROOT}/bin
 
-RUN PIP_USER=1 pip install pipenv
+RUN  pip install pipenv
 COPY Pipfile* ./
-RUN PIP_USER=1 pipenv install --system --deploy  --ignore-pipfile
+RUN if [ "$ENVIRONMENT" = "prod" ]; then PIP_USER=1 pipenv install --system --deploy --ignore-pipfile; \
+    else PIP_USER=1 pipenv install --system --deploy --ignore-pipfile --dev; fi
 
 FROM python:3.12-alpine
 
