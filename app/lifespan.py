@@ -27,8 +27,8 @@ async def lifespan(app):
         logger.error(f"Failed to create database pool: {exc}")
         raise
 
-    user_services = UserServices(pool)
     auth_services = AuthServices(secret_key, algorithm, access_token_expire_minutes, pwd_context)
+    user_services = UserServices(pool, auth_services)
     storage_services = StorageServices(pool)
 
 

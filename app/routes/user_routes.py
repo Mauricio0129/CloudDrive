@@ -12,14 +12,12 @@ def create_user_routes(user_services, auth_services, storage_services, aws_servi
 
     @user_routes.post("/user")
     async def create_user(user: RegisterUser):
-        await user_services.check_if_user_exist_registration(user.username, user.email)
-        hashed_password = auth_services.hash_password(user.password.get_secret_value())
-        await user_services.register_user(user.username, user.email, hashed_password)
+        user_id = await user_services.register_new_user(user.username, user.email, user.password)
         return JSONResponse(status_code=201, content={"message": "User successfully registered"})
 
     @user_routes.post("/login")
     async def login_user(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
-        user = await user_services.get_user_id_password(form_data.username)
+        user = await user_services.get_user_id_and_password(form_data.username)
         if not auth_services.verify_password(form_data.password, user["password"]):
             raise HTTPException(status_code=401, detail="Incorrect Credentials")
         return {
