@@ -32,7 +32,7 @@ CREATE TABLE files (
     last_interaction TIMESTAMP NOT NULL DEFAULT NOW(),
     owner_id UUID REFERENCES users(id) ON DELETE CASCADE,
     parent_folder_id UUID REFERENCES folders(id) ON DELETE CASCADE,
-    UNIQUE (folder_id, name, owner_id)
+    UNIQUE (parent_folder_id, name, owner_id)
 );
 
 -- Shares table
