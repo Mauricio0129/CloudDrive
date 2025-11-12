@@ -99,9 +99,7 @@ class StorageServices:
         await self.check_if_user_has_enough_space(user_id, file.file_size_in_bytes)
         ext = file.file_name.rsplit(".", 1)[1]
 
-        if file.parent_folder_id:
-            if not await self.verify_folder_existence_ownership(user_id, file.parent_folder_id):
-                raise HTTPException(status_code=400, detail="Folder not found")
+        await self._verify_parent_folder_if_provided(user_id, file.parent_folder_id)
 
         if await self.is_file_name_taken(user_id, file.file_name, file.parent_folder_id):
             raise HTTPException(status_code=409, detail="File already exists use FILE-CONFLICT parameter to solve")
@@ -113,9 +111,7 @@ class StorageServices:
                                                              file.parent_folder_id)
 
     async def replace_existing_file(self, file: UploadFileInfo, user_id) -> dict:
-        if file.parent_folder_id:
-            if not await self.verify_folder_existence_ownership(user_id, file.parent_folder_id):
-                raise HTTPException(status_code=400, detail="Folder not found")
+        await self._verify_parent_folder_if_provided(user_id, file.parent_folder_id)
 
         existing = await self.get_existing_file_uuid_and_size(user_id, file.parent_folder_id, file.file_name)
 
@@ -131,10 +127,7 @@ class StorageServices:
                                                         file.parent_folder_id)
 
     async def keep_both_files(self, file: UploadFileInfo, user_id) -> dict:
-        if file.parent_folder_id:
-            if not await self.verify_folder_existence_ownership(user_id, file.parent_folder_id):
-                raise HTTPException(status_code=400, detail="Folder not found")
-
+        await self._verify_parent_folder_if_provided(user_id, file.parent_folder_id)
 
         await self.check_if_user_has_enough_space(user_id, file.file_size_in_bytes)
         ext = file.file_name.rsplit(".", 1)[1]
@@ -181,9 +174,7 @@ class StorageServices:
         Create new folder after validating parent folder existence and uniqueness at location.
         Raises 404 if parent folder not found, 409 if folder already exists at location.
         """
-        if parent_folder_id:
-            if not await self.verify_folder_existence_ownership(user_id, parent_folder_id):
-                raise HTTPException(status_code=404, detail="Parent folder not found")
+        await self._verify_parent_folder_if_provided(user_id, parent_folder_id)
 
         if await self.check_if_folder_name_in_use_at_location(user_id, folder_name, parent_folder_id):
             raise HTTPException(status_code=409, detail=f"Folder '{folder_name}' already exists in this location")
@@ -216,6 +207,7 @@ class StorageServices:
                         f"ORDER BY {sort_by} {order}", user_id
                     )
                 else:
+                    await self._verify_parent_folder_if_provided(user_id, location)
                     data = await conn.fetch(
                         "SELECT id, name, created_at, last_interaction, size_in_bytes, type, parent_folder_id "
                         "FROM files WHERE owner_id = $1 AND parent_folder_id = $2 "
@@ -291,3 +283,8 @@ class StorageServices:
         async with self.db.acquire() as conn:
             await conn.execute("UPDATE files SET name = $1 WHERE id = $2", file_name, file_id)
         return {"message": f"File renamed to '{file_name}'"}
+
+    async def _verify_parent_folder_if_provided(self, user_id, parent_folder_id):
+        if parent_folder_id:
+            if not await self.verify_folder_existence_ownership(user_id, parent_folder_id):
+                raise HTTPException(status_code=400, detail="Folder not found")

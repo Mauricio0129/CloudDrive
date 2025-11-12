@@ -1,21 +1,28 @@
-import os
 import asyncpg
 from dotenv import load_dotenv
+from passlib.context import CryptContext
 import logging
 import pytest_asyncio
 import pytest
-from app.schemas.schemas import RegisterUser
+from app.schemas.schemas import RegisterUser, FolderCreationBody
+from app.services.user_services import UserServices
+from app.services.auth_services import AuthServices
+import os
+
+load_dotenv()
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+secret_key = os.getenv("SECRET_KEY")
+algorithm = os.getenv("ALGORITHM")
+access_token_expire_minutes = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
+testing_database = os.getenv("TESTING_DATABASE")
 
 logger = logging.getLogger(__name__)
-
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[logging.StreamHandler()]
 )
-
-load_dotenv()
-testing_database = os.getenv("TESTING_DATABASE")
 
 if not testing_database:
     raise ValueError("TESTING_DATABASE environment variable not set")
@@ -43,3 +50,20 @@ def valid_user_data():
         email="test@test.com",
         password="testpassword"
     )
+
+@pytest.fixture(scope="session")
+async def auth_services():
+    """Created once per session"""
+    auth_services = AuthServices(secret_key, algorithm, access_token_expire_minutes, pwd_context)
+    return auth_services
+
+@pytest.fixture
+def valid_folder_data_no_parent():
+    return FolderCreationBody(
+        folder_name = "test_folder",
+    )
+
+@pytest.fixture(scope="session")
+async def user_services(db_pool, auth_services):
+    """Created once per session"""
+    return UserServices(db_pool, auth_services)

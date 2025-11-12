@@ -27,9 +27,8 @@ def create_user_routes(user_services, auth_services, storage_services, aws_servi
 
     @user_routes.post("/drive")
     async def create_folder(user_id: Annotated[str, Depends(get_token_and_decode)], folder_info : FolderCreationBody):
-
         folder_name = await storage_services.register_folder(folder_info.folder_name,
-                                                           folder_info.parent_folder_id, user_id)
+                                                             folder_info.parent_folder_id, user_id)
         return {"message": f"Folder: {folder_name} successfully created"}
 
     @user_routes.get("/drive", response_model=FolderContents)
