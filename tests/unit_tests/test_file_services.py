@@ -1,4 +1,4 @@
-from app.services.storage_services import StorageServices
+from app.services.folder_services import FolderServices
 from app.schemas.schemas import RegisterUser
 from fastapi import HTTPException
 import pytest
@@ -6,7 +6,7 @@ import pytest
 @pytest.fixture(scope="session")
 async def storage_services(db_pool):
     """Created once per session"""
-    return StorageServices(db_pool)
+    return FolderServices(db_pool)
 
 async def test_register_folder_at_root_succeeds(storage_services, valid_user_data, user_services,
                                                 valid_folder_data_no_parent):

@@ -2,7 +2,8 @@ from contextlib import asynccontextmanager
 from .startup import DATABASE_URL, pwd_context, secret_key, algorithm, access_token_expire_minutes
 from .services.user_services import UserServices
 from .services.auth_services import AuthServices
-from .services.storage_services import StorageServices
+from .services.folder_services import FolderServices
+from .services.file_services import FileServices
 from .services.aws import AwsServices
 from .routes.user_routes import create_user_routes
 import asyncpg
@@ -29,10 +30,10 @@ async def lifespan(app):
 
     auth_services = AuthServices(secret_key, algorithm, access_token_expire_minutes, pwd_context)
     user_services = UserServices(pool, auth_services)
-    storage_services = StorageServices(pool)
+    folder_services = FolderServices(pool)
+    file_services = FileServices(pool, folder_services)
 
-
-    user_routes = create_user_routes(user_services, auth_services, storage_services, AwsServices)
+    user_routes = create_user_routes(user_services, auth_services, folder_services, AwsServices, file_services)
     app.include_router(user_routes)
 
     yield

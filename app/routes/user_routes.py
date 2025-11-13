@@ -7,7 +7,7 @@ from app.dependencies import get_token_and_decode
 from fastapi.responses import JSONResponse
 
 
-def create_user_routes(user_services, auth_services, storage_services, aws_services) -> APIRouter:
+def create_user_routes(user_services, auth_services, folder_services, aws_services, file_services) -> APIRouter:
     user_routes = APIRouter()
 
     @user_routes.post("/user")
@@ -27,48 +27,48 @@ def create_user_routes(user_services, auth_services, storage_services, aws_servi
 
     @user_routes.post("/drive")
     async def create_folder(user_id: Annotated[str, Depends(get_token_and_decode)], folder_info : FolderCreationBody):
-        folder_name = await storage_services.register_folder(folder_info.folder_name,
-                                                             folder_info.parent_folder_id, user_id)
+        folder_name = await folder_services.register_folder(folder_info.folder_name,
+                                                            folder_info.parent_folder_id, user_id)
         return {"message": f"Folder: {folder_name} successfully created"}
 
     @user_routes.get("/drive", response_model=FolderContents)
     async def get_root_folders(user_id: Annotated[str, Depends(get_token_and_decode)],
                                query: Annotated[FolderContentQuery, Query()]):
 
-        data = await storage_services.retrieve_folder_content(user_id, query.sort_by, query.order)
+        data = await folder_services.retrieve_folder_content(user_id, query.sort_by, query.order)
         return data
 
     @user_routes.get("/drive/{folder_id}", response_model=FolderContents)
     async def get_folder_content(user_id: Annotated[str, Depends(get_token_and_decode)],
                                  query: Annotated[FolderContentQuery, Query()], folder_id: str):
 
-        data = await storage_services.retrieve_folder_content(user_id, query.sort_by, query.order, folder_id)
+        data = await folder_services.retrieve_folder_content(user_id, query.sort_by, query.order, folder_id)
         return data
 
     @user_routes.patch("/drive/{folder_id}")
     async def update_folder_name(user_id: Annotated[str, Depends(get_token_and_decode)], folder_id: str,
                                  folder_info: UpdateFolderName):
-        return await storage_services.rename_folder(user_id, folder_info.parent_folder_id, folder_id,
-                                                    folder_info.new_name)
+        return await folder_services.rename_folder(user_id, folder_info.parent_folder_id, folder_id,
+                                                   folder_info.new_name)
 
     @user_routes.post("/file")
     async def upload_file(user_id: Annotated[str, Depends(get_token_and_decode)], file:UploadFileInfo):
         if not file.file_conflict:
-            return await storage_services.upload_an_new_file(file, user_id)
+            return await file_services.upload_an_new_file(file, user_id)
         if file.file_conflict == "Replace":
-            return await storage_services.replace_existing_file(file, user_id)
-        return await storage_services.keep_both_files(file, user_id)
+            return await file_services.replace_existing_file(file, user_id)
+        return await file_services.keep_both_files(file, user_id)
 
     @user_routes.get("/file/{file_id}")
     async def get_file(user_id: Annotated[str, Depends(get_token_and_decode)],
             file_id: Annotated[str, Path(min_length=36, max_length=36)]):
-        return await storage_services.get_user_presigned_download_url(user_id, file_id)
+        return await file_services.get_user_presigned_download_url(user_id, file_id)
 
     @user_routes.patch("/file/{file_id}")
     async def rename_file(user_id: Annotated[str, Depends(get_token_and_decode)],
                           file_id: Annotated[str, Path(min_length=36, max_length=36)],
                           rename_info: RenameFile):
-        return await storage_services.rename_file(user_id, file_id, rename_info.file_name, rename_info.folder_id)
+        return await file_services.rename_file(user_id, file_id, rename_info.file_name, rename_info.folder_id)
 
     @user_routes.post("/profile_photo")
     async def upload_profile_image(user_id: Annotated[str, Depends(get_token_and_decode)], photo_size_in_bytes: int):
