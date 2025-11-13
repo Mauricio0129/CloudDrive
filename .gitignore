@@ -1,7 +1,10 @@
 .venv/
 .idea/
 .env
- __pycache__/
-app/routes/__pycache__/user_routes.cpython-312.pyc
-app/services/__pycache__/basic_services.cpython-312.pyc
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.coverage
+htmlcov/
 test.html
