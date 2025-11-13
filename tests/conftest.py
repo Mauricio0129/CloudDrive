@@ -46,9 +46,9 @@ async def clean_db(db_pool):
 @pytest.fixture
 def valid_user_data():
     return RegisterUser(
-        username="testuser",
+        username="test_user",
         email="test@test.com",
-        password="testpassword"
+        password="test_password"
     )
 
 @pytest.fixture(scope="session")
