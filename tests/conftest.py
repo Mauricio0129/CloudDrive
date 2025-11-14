@@ -22,11 +22,12 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler()]
+    handlers=[logging.StreamHandler()],
 )
 
 if not testing_database:
     raise ValueError("TESTING_DATABASE environment variable not set")
+
 
 @pytest_asyncio.fixture(scope="session")
 async def db_pool():
@@ -37,37 +38,45 @@ async def db_pool():
     await pool.close()
     logger.info("Database connection closed")
 
+
 @pytest_asyncio.fixture(autouse=True)
 async def clean_db(db_pool):
     """Runs before each test"""
     async with db_pool.acquire() as conn:
-        await conn.execute("TRUNCATE users, files, folders, shares, permissions CASCADE")
+        await conn.execute(
+            "TRUNCATE users, files, folders, shares, permissions CASCADE"
+        )
     yield
+
 
 @pytest.fixture
 def valid_user_data():
     return RegisterUser(
-        username="test_user",
-        email="test@test.com",
-        password="test_password"
+        username="test_user", email="test@test.com", password="test_password"
     )
+
 
 @pytest.fixture(scope="session")
 async def auth_services():
     """Created once per session"""
-    auth_services = AuthServices(secret_key, algorithm, access_token_expire_minutes, pwd_context)
+    auth_services = AuthServices(
+        secret_key, algorithm, access_token_expire_minutes, pwd_context
+    )
     return auth_services
+
 
 @pytest.fixture
 def valid_folder_data_no_parent():
     return FolderCreationBody(
-        folder_name = "test_folder",
+        folder_name="test_folder",
     )
+
 
 @pytest.fixture(scope="session")
 async def user_services(db_pool, auth_services):
     """Created once per session"""
     return UserServices(db_pool, auth_services)
+
 
 @pytest.fixture(scope="session")
 async def folder_services(db_pool):

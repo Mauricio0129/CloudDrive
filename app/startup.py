@@ -5,8 +5,17 @@ import os
 load_dotenv()
 
 # Required environment variables
-env_vars = ["DATABASE", "DB_USER", "DATABASE_PASSWORD", "HOST", "PORT", "SECRET_KEY", "ALGORITHM",
-            "ACCESS_TOKEN_EXPIRE_MINUTES", "BUCKET_NAME"]
+env_vars = [
+    "DATABASE",
+    "DB_USER",
+    "DATABASE_PASSWORD",
+    "HOST",
+    "PORT",
+    "SECRET_KEY",
+    "ALGORITHM",
+    "ACCESS_TOKEN_EXPIRE_MINUTES",
+    "BUCKET_NAME",
+]
 
 missing = [var for var in env_vars if not os.getenv(var)]
 if missing:

@@ -5,6 +5,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def adds_basic_services_global_handlers(app):
     @app.exception_handler(PostgresError)
     async def postgres_exception_handler(request: Request, exc: PostgresError):

@@ -1,5 +1,11 @@
 from contextlib import asynccontextmanager
-from .startup import DATABASE_URL, pwd_context, secret_key, algorithm, access_token_expire_minutes
+from .startup import (
+    DATABASE_URL,
+    pwd_context,
+    secret_key,
+    algorithm,
+    access_token_expire_minutes,
+)
 from .services.user_services import UserServices
 from .services.auth_services import AuthServices
 from .services.folder_services import FolderServices
@@ -16,8 +22,9 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler()]
+    handlers=[logging.StreamHandler()],
 )
+
 
 @asynccontextmanager
 async def lifespan(app):
@@ -28,12 +35,16 @@ async def lifespan(app):
         logger.error(f"Failed to create database pool: {exc}")
         raise
 
-    auth_services = AuthServices(secret_key, algorithm, access_token_expire_minutes, pwd_context)
+    auth_services = AuthServices(
+        secret_key, algorithm, access_token_expire_minutes, pwd_context
+    )
     user_services = UserServices(pool, auth_services)
     folder_services = FolderServices(pool)
     file_services = FileServices(pool, folder_services)
 
-    user_routes = create_user_routes(user_services, auth_services, folder_services, AwsServices, file_services)
+    user_routes = create_user_routes(
+        user_services, auth_services, folder_services, AwsServices, file_services
+    )
     app.include_router(user_routes)
 
     yield

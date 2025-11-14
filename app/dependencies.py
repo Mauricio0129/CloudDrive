@@ -8,8 +8,11 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 
 
 async def get_token_and_decode(token: Annotated[str, Depends(oauth2_scheme)]) -> str:
-    credentials_exception = HTTPException(status_code=401, detail="Could not validate credentials",
-                                          headers={"WWW-Authenticate": "Bearer"}, )
+    credentials_exception = HTTPException(
+        status_code=401,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
     try:
         payload = jwt.decode(token, secret_key, algorithms=[algorithm])
         user_id = payload.get("sub")
