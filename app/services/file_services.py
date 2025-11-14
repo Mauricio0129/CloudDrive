@@ -16,17 +16,19 @@ class FileServices:
                 return str(row["name"])
             return False
 
-    async def is_file_name_taken(self, user_id, file_name, parent_folder_id = None) -> str | bool:
+    async def is_file_name_taken(self, user_id, file_name, parent_folder_id=None) -> bool:
         async with self.db.acquire() as conn:
             if parent_folder_id:
-                row = await conn.fetch("SELECT name FROM files WHERE owner_id = $1 AND parent_folder_id = $2 AND name = $3",
-                                          user_id, parent_folder_id, file_name)
+                row = await conn.fetchrow(
+                    "SELECT name FROM files WHERE owner_id = $1 AND parent_folder_id = $2 AND name = $3",
+                    user_id, parent_folder_id, file_name
+                )
             else:
-                row = await conn.fetch("SELECT name FROM files WHERE owner_id = $1 AND parent_folder_id IS NULL AND name = $2",
-                                          user_id, file_name)
-            if row:
-                already_used_names_at_location = [name for name in row["name"]]
-            return False
+                row = await conn.fetchrow(
+                    "SELECT name FROM files WHERE owner_id = $1 AND parent_folder_id IS NULL AND name = $2",
+                    user_id, file_name
+                )
+            return row is not None
 
     async def temp_log_file_to_be_verified(self, user_id, parent_folder_id, file_name, size_in_bytes, file_type) -> str:
         """

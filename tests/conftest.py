@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 from passlib.context import CryptContext
 import logging
 import pytest_asyncio
+from app.services.folder_services import FolderServices
 import pytest
 from app.schemas.schemas import RegisterUser, FolderCreationBody
 from app.services.user_services import UserServices
@@ -67,3 +68,8 @@ def valid_folder_data_no_parent():
 async def user_services(db_pool, auth_services):
     """Created once per session"""
     return UserServices(db_pool, auth_services)
+
+@pytest.fixture(scope="session")
+async def folder_services(db_pool):
+    """Created once per session"""
+    return FolderServices(db_pool)
