@@ -40,6 +40,25 @@ allowed_extensions = {
     "cfg",
     "yml",
     "yaml",
+    # Videos
+    "mp4",
+    "mov",
+    "avi",
+    "mkv",
+    "webm",
+    "flv",
+    "wmv",
+    "m4v",
+    "mpeg",
+    "mpg",
+    # Audio
+    "mp3",
+    "wav",
+    "flac",
+    "aac",
+    "ogg",
+    "m4a",
+    "wma",
 }
 
 

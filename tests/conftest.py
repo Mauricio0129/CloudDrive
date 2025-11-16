@@ -57,7 +57,7 @@ def valid_user_data():
 
 
 @pytest.fixture(scope="session")
-async def auth_services():
+def auth_services():
     """Created once per session"""
     auth_services = AuthServices(
         secret_key, algorithm, access_token_expire_minutes, pwd_context
@@ -73,12 +73,12 @@ def valid_folder_data_no_parent():
 
 
 @pytest.fixture(scope="session")
-async def user_services(db_pool, auth_services):
+def user_services(db_pool, auth_services):
     """Created once per session"""
     return UserServices(db_pool, auth_services)
 
 
 @pytest.fixture(scope="session")
-async def folder_services(db_pool):
+def folder_services(db_pool):
     """Created once per session"""
     return FolderServices(db_pool)
