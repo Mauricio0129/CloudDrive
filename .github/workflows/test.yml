@@ -1,0 +1,56 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_clouddrive
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.12 --more like switching
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install pipenv
+        pipenv install --system --deploy --ignore-pipfile --dev
+
+    - name: Create .env file
+      run: |
+        echo "SECRET_KEY=$(openssl rand -hex 32)" > .env
+        echo "ALGORITHM=HS256" >> .env
+        echo "ACCESS_TOKEN_EXPIRE_MINUTES=30" >> .env
+        echo "TESTING_DATABASE=postgresql://postgres:postgres@localhost:5432/test_clouddrive" >> .env
+
+    - name: Set up database schema
+      run: |
+        PGPASSWORD=postgres psql -h localhost -U postgres -d test_clouddrive -f app/db/db.sql
+
+    - name: Run tests with coverage
+      run: |
+        pytest tests/unit_tests --cov=app.services --cov-report=term-missing
