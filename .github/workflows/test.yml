@@ -43,6 +43,12 @@ jobs:
     - name: Create .env file
       run: |
         echo "SECRET_KEY=$(openssl rand -hex 32)" > .env
+        echo "DATABASE=filler-ci-value" >> .env
+        echo "DB_USER=filler-user-for-ci" >> .env
+        echo "DATABASE_PASSWORD=filler-password-ci" >> .env
+        echo "HOST=filler-host-ci" >> .env
+        echo "PORT=filler-port-ci" >> .env
+        echo "BUCKET_NAME=filler-bucket-ci" >> .env
         echo "ALGORITHM=HS256" >> .env
         echo "ACCESS_TOKEN_EXPIRE_MINUTES=30" >> .env
         echo "TESTING_DATABASE=postgresql://postgres:postgres@localhost:5432/test_clouddrive" >> .env
