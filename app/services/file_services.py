@@ -2,6 +2,7 @@ import re
 from ..schemas.schemas import UploadFileInfo
 from fastapi import HTTPException
 from .aws import AwsServices
+from ..helpers.file_utils import allowed_extensions
 
 
 class FileServices:
@@ -219,21 +220,59 @@ class FileServices:
             )
         raise HTTPException(status_code=404, detail="File doesn't exist")
 
+    @staticmethod
+    async def verify_extension_is_not_being_overwritten(file_name):
+        # Check if there's a dot at all
+        if "." not in file_name:
+            return False
+
+        name , ext = file_name.rsplit(".", 1)
+
+        # Check if extension is empty (file ends with dot)
+        if not ext:
+            return False  # Empty extension safe
+
+        if ext.lower() in allowed_extensions:
+            return True
+
+        return False ## Part of the filename safe
+
     async def rename_file(self, user_id, file_id, file_name, parent_folder_id):
         """
         Rename file after verifying ownership and checking for name conflicts.
         Verifies file ownership, checks if new name is taken at location, updates display name.
         Returns success message on completion.
         """
-        if not await self.verify_file_existence_ownership(user_id, file_id):
-            raise HTTPException(status_code=404, detail="File doesn't exist")
-        if await self.is_file_name_taken(user_id, file_name, parent_folder_id):
+
+        # 1. Reject if user included extension
+        if await self.verify_extension_is_not_being_overwritten(file_name):
+            raise HTTPException(
+                status_code=400,
+                detail="Do not include file extension. Extension will be preserved automatically."
+            )
+
+        # 2. Verify ownership and get original filename
+        old_name = await self.verify_file_existence_ownership(user_id, file_id)
+        if not old_name:
+            raise HTTPException(status_code=404, detail="File not found")
+
+        # 3. Extract and preserve original extension
+        _, ext = old_name.rsplit(".", 1)  # No check needed - all files have extensions ✅
+        adjusted_name = f"{file_name}.{ext}"
+
+        # 4. Check for naming conflicts
+        if await self.is_file_name_taken(user_id, adjusted_name, parent_folder_id):
             raise HTTPException(
                 status_code=409,
-                detail=f"File '{file_name}' already exists in this location",
+                detail=f"File '{adjusted_name}' already exists in this location"
             )
+
+        # 5. Update filename
         async with self.db.acquire() as conn:
             await conn.execute(
-                "UPDATE files SET name = $1 WHERE id = $2", file_name, file_id
+                "UPDATE files SET name = $1 WHERE id = $2",
+                adjusted_name,
+                file_id
             )
-        return {"message": f"File renamed to '{file_name}'"}
+
+        return {"message": f"File renamed to '{adjusted_name}'"}
