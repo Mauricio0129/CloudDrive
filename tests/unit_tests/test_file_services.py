@@ -24,7 +24,7 @@ def valid_file_upload():
 def valid_file_upload2():
     """Standard file upload request with 300 bytes."""
     return UploadFileInfo(
-        file_name="vacation.jpg",
+        file_name="vacation.png",
         file_size_in_bytes=300,
     )
 
@@ -258,7 +258,8 @@ async def test_rename_file_succeeds_when_name_available(
         )
         new_name = result["name"]
 
-    assert new_name == "new_file_name_after_Test"
+    ## reason for png extension is that extension is inherited from previous name
+    assert new_name == "new_file_name_after_Test.png"
 
 
 @patch("app.services.file_services.AwsServices.generate_presigned_upload_url")
@@ -292,8 +293,9 @@ async def test_rename_file_fails_when_name_taken(
         file_id = str(result["id"])
 
     # Attempt to rename second file to first file's name (should fail)
+    # Updated to explicitly use name photo without a set extension to clearly inherit and raise the exception
     with pytest.raises(HTTPException) as exc_info:
-        await file_service.rename_file(user_id, file_id, valid_file_upload.file_name, None)
+        await file_service.rename_file(user_id, file_id, "photo", None)
 
     assert exc_info.value.status_code == 409
 
@@ -421,4 +423,32 @@ async def test_upload_to_nonexistent_folder_raises_400(
     with pytest.raises(HTTPException) as exc_info:
         await file_service.upload_an_new_file(file_with_parent_folder, user_id)
 
+    assert exc_info.value.status_code == 400
+
+@patch("app.services.file_services.AwsServices.generate_presigned_upload_url")
+async def test_rename_file_fails_when_ext_is_included_available_400(
+        mock_upload,
+        db_pool,
+        file_service,
+        user_services,
+        valid_user_data,
+        valid_file_upload
+):
+    """Test that renaming a file succeeds when new name is available."""
+    user_id = await user_services.register_new_user(
+        valid_user_data.username, valid_user_data.email, valid_user_data.password
+    )
+
+    await file_service.upload_an_new_file(valid_file_upload, user_id)
+
+    async with db_pool.acquire() as conn:
+        result = await conn.fetchrow(
+            "SELECT id FROM files WHERE name = $1",
+            valid_file_upload.file_name
+        )
+        file_id = str(result["id"])
+    with pytest.raises(HTTPException) as exc_info:
+        await file_service.rename_file(user_id, file_id, "new_file_name_after_Test.png", None)
+
+    ## reason for png extension is that extension is inherited from previous name
     assert exc_info.value.status_code == 400
