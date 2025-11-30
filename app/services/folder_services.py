@@ -105,7 +105,8 @@ class FolderServices:
 
             if not location:
                 user_dict = dict(user_data)
-            folder_files_list_of_records = [dict(record) for record in data]
+            folder_files_list_of_records = [dict(record) for record in data] # Convert records to dicts
+            # Format UUIDs and datetimes to strings for Pydantic
             formated_folder_files_list_of_records = format_db_returning_objects(
                 folder_files_list_of_records
             )

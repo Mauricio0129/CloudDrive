@@ -9,11 +9,10 @@ logger = logging.getLogger(__name__)
 def adds_basic_services_global_handlers(app):
     @app.exception_handler(PostgresError)
     async def postgres_exception_handler(request: Request, exc: PostgresError):
-        # CHANGE 1: Add exc_info=True to get full stack trace
-        # CHANGE 2: Include request details (method + path) to know which endpoint failed
+        # exc_info=True to get full stack trace
+        # Include request details (method + path) to know which endpoint failed
         logger.error(
-            f"Database error - {request.method} {request.url.path}",
-            exc_info=True
+            f"Database error - {request.method} {request.url.path}", exc_info=True
         )
         return JSONResponse(
             status_code=500,
@@ -22,14 +21,12 @@ def adds_basic_services_global_handlers(app):
 
     @app.exception_handler(Exception)
     async def catch_all_exception_handler(request: Request, exc: Exception):
-        # Don't catch HTTPExceptions (business logic) - let FastAPI handle them
+        # Dont catch HTTPExceptions (business logic)
         if isinstance(exc, HTTPException):
             raise exc
 
-        # This catches bugs in your code that aren't database-related
         logger.critical(
-            f"Unexpected error - {request.method} {request.url.path}",
-            exc_info=True
+            f"Unexpected error - {request.method} {request.url.path}", exc_info=True
         )
         return JSONResponse(
             status_code=500,

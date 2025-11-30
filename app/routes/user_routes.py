@@ -8,6 +8,8 @@ from app.schemas.schemas import (
     FolderContentQuery,
     UpdateFolderName,
     RenameFile,
+    Share,
+    SharedWithMeResponse
 )
 from fastapi.security import OAuth2PasswordRequestForm
 from app.dependencies import get_token_and_decode
@@ -15,7 +17,12 @@ from fastapi.responses import JSONResponse
 
 
 def create_user_routes(
-    user_services, auth_services, folder_services, aws_services, file_services
+    user_services,
+    auth_services,
+    folder_services,
+    aws_services,
+    file_services,
+    share_services,
 ) -> APIRouter:
     user_routes = APIRouter()
 
@@ -107,6 +114,18 @@ def create_user_routes(
         return await file_services.rename_file(
             user_id, file_id, rename_info.file_name, rename_info.folder_id
         )
+
+    @user_routes.post("/share")
+    async def share(
+        user_id: Annotated[str, Depends(get_token_and_decode)], share_info: Share
+    ):
+        if share_info.share_object_type == "file":
+            return await share_services.share_file(user_id, share_info)
+        return await share_services.share_folder(user_id, share_info)
+
+    @user_routes.get("/shared-with-me", response_model=SharedWithMeResponse)
+    async def share_with_me(user_id: Annotated[str, Depends(get_token_and_decode)]):
+        return await share_services.get_shared_with_me(user_id)
 
     @user_routes.post("/profile_photo")
     async def upload_profile_image(

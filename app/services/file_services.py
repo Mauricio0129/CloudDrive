@@ -226,7 +226,7 @@ class FileServices:
         if "." not in file_name:
             return False
 
-        name , ext = file_name.rsplit(".", 1)
+        name, ext = file_name.rsplit(".", 1)
 
         # Check if extension is empty (file ends with dot)
         if not ext:
@@ -235,7 +235,7 @@ class FileServices:
         if ext.lower() in allowed_extensions:
             return True
 
-        return False ## Part of the filename safe
+        return False  ## Part of the filename safe
 
     async def rename_file(self, user_id, file_id, file_name, parent_folder_id):
         """
@@ -248,7 +248,7 @@ class FileServices:
         if await self.verify_extension_is_not_being_overwritten(file_name):
             raise HTTPException(
                 status_code=400,
-                detail="Do not include file extension. Extension will be preserved automatically."
+                detail="Do not include file extension. Extension will be preserved automatically.",
             )
 
         # 2. Verify ownership and get original filename
@@ -257,22 +257,43 @@ class FileServices:
             raise HTTPException(status_code=404, detail="File not found")
 
         # 3. Extract and preserve original extension
-        _, ext = old_name.rsplit(".", 1)  # No check needed - all files have extensions ✅
+        _, ext = old_name.rsplit(
+            ".", 1
+        )  # No check needed  all files have extensions
         adjusted_name = f"{file_name}.{ext}"
 
         # 4. Check for naming conflicts
         if await self.is_file_name_taken(user_id, adjusted_name, parent_folder_id):
             raise HTTPException(
                 status_code=409,
-                detail=f"File '{adjusted_name}' already exists in this location"
+                detail=f"File '{adjusted_name}' already exists in this location",
             )
 
         # 5. Update filename
         async with self.db.acquire() as conn:
             await conn.execute(
-                "UPDATE files SET name = $1 WHERE id = $2",
-                adjusted_name,
-                file_id
+                "UPDATE files SET name = $1 WHERE id = $2", adjusted_name, file_id
             )
 
         return {"message": f"File renamed to '{adjusted_name}'"}
+
+    async def share(self, user_id, share_info):
+        if not await self.verify_file_existence_ownership(user_id, share_info.file_id):
+            raise HTTPException(status_code=404, detail="File not found")
+
+        async with self.db.acquire() as conn:
+            data = await conn.fetchrow(
+                "SELECT id FROM users WHERE username = $1", share_info.username
+            )
+            if not data:
+                raise HTTPException(
+                    status_code=404, detail=f"User '{share_info.username}' not found"
+                )
+
+            receiver_id = str(data["id"])
+            await conn.execute(
+                "INSERT INTO shares(user_id, file_id, shared_with) VALUES ($1, $2, $3) ",
+                user_id,
+                share_info.file_id,
+                receiver_id,
+            )

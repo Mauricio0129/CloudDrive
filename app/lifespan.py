@@ -11,6 +11,7 @@ from .services.auth_services import AuthServices
 from .services.folder_services import FolderServices
 from .services.file_services import FileServices
 from .services.aws import AwsServices
+from .services.share_services import ShareServices
 from .routes.user_routes import create_user_routes
 import asyncpg
 import logging
@@ -41,9 +42,15 @@ async def lifespan(app):
     user_services = UserServices(pool, auth_services)
     folder_services = FolderServices(pool)
     file_services = FileServices(pool, folder_services)
+    share_services = ShareServices(pool, file_services, folder_services)
 
     user_routes = create_user_routes(
-        user_services, auth_services, folder_services, AwsServices, file_services
+        user_services,
+        auth_services,
+        folder_services,
+        AwsServices,
+        file_services,
+        share_services,
     )
     app.include_router(user_routes)
 
