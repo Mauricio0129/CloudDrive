@@ -1,5 +1,7 @@
 from typing import Annotated
 from fastapi import APIRouter, HTTPException, Depends, Query, Path
+from pygments.lexers import q
+
 from app.schemas.schemas import (
     RegisterUser,
     UploadFileInfo,
@@ -138,5 +140,9 @@ def create_user_routes(
     @user_routes.get("/profile_photo")
     async def get_profile_image(user_id: Annotated[str, Depends(get_token_and_decode)]):
         return aws_services.generate_presigned_photo_download_url(user_id)
+
+    @user_routes.get("/health")
+    def health_check():
+        return {"status": "healthy"}
 
     return user_routes

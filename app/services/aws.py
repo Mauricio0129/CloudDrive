@@ -1,8 +1,7 @@
 import boto3
-from ..startup import bucket_name
+from ..startup import bucket_name, region
 
-
-s3 = boto3.client("s3")
+s3 = boto3.client("s3", region_name=region)
 
 
 class AwsServices:
