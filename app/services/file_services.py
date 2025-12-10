@@ -1,14 +1,14 @@
 import re
 from ..schemas.schemas import UploadFileInfo
 from fastapi import HTTPException
-from .aws import AwsServices
 from ..helpers.file_utils import allowed_extensions
 
 
 class FileServices:
-    def __init__(self, db, folder_services):
+    def __init__(self, db, folder_services, aws_services):
         self.db = db
         self.folder_services = folder_services
+        self.aws_services = aws_services
 
     async def verify_file_existence_ownership(self, user_id, file_id):
         async with self.db.acquire() as conn:
@@ -118,7 +118,7 @@ class FileServices:
             user_id, file.parent_folder_id, file.file_name, file.file_size_in_bytes, ext
         )
 
-        return AwsServices.generate_presigned_upload_url(
+        return self.aws_services.generate_presigned_upload_url(
             user_id, file.file_size_in_bytes, name_s3_id, file.parent_folder_id
         )
 
@@ -139,7 +139,7 @@ class FileServices:
             size_difference = file.file_size_in_bytes - bytes_size
             await self.check_if_user_has_enough_space(user_id, size_difference)
 
-        return AwsServices.generate_presigned_upload_url(
+        return self.aws_services.generate_presigned_upload_url(
             user_id, file.file_size_in_bytes, name_s3_id, file.parent_folder_id
         )
 
@@ -168,7 +168,7 @@ class FileServices:
             user_id, file.parent_folder_id, new_name, file.file_size_in_bytes, ext
         )
 
-        return AwsServices.generate_presigned_upload_url(
+        return self.aws_services.generate_presigned_upload_url(
             user_id, file.file_size_in_bytes, s3_file_id, file.parent_folder_id
         )
 
@@ -215,7 +215,7 @@ class FileServices:
         """
         if await self.verify_file_existence_ownership(user_id, file_id):
             name, folder_id = await self.get_file_metadata_for_download(file_id)
-            return AwsServices.generate_presigned_download_url(
+            return self.aws_services.generate_presigned_download_url(
                 user_id, file_id, name, folder_id
             )
         raise HTTPException(status_code=404, detail="File doesn't exist")
@@ -257,9 +257,7 @@ class FileServices:
             raise HTTPException(status_code=404, detail="File not found")
 
         # 3. Extract and preserve original extension
-        _, ext = old_name.rsplit(
-            ".", 1
-        )  # No check needed  all files have extensions
+        _, ext = old_name.rsplit(".", 1)  # No check needed  all files have extensions
         adjusted_name = f"{file_name}.{ext}"
 
         # 4. Check for naming conflicts

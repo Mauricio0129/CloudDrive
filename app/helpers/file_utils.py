@@ -277,13 +277,26 @@ def format_db_returning_objects(data: list):
         item["id"] = str(item["id"])
 
         # Use .get() returns None if key doesn't exist, preventing KeyError and all fields are now optionally normalized
-        item["last_interaction"] = item.get("last_interaction").strftime(time_format) if item.get(
-            "last_interaction") else None
+        item["last_interaction"] = (
+            item.get("last_interaction").strftime(time_format)
+            if item.get("last_interaction")
+            else None
+        )
 
-        item["created_at"] = item.get("created_at").strftime(time_format) if item.get("created_at") else None
+        item["created_at"] = (
+            item.get("created_at").strftime(time_format)
+            if item.get("created_at")
+            else None
+        )
 
-        item["shared_at"] = item.get("shared_at").strftime(time_format) if item.get("shared_at") else None
+        item["shared_at"] = (
+            item.get("shared_at").strftime(time_format)
+            if item.get("shared_at")
+            else None
+        )
 
-        item['parent_folder_id'] = str(item['parent_folder_id']) if item.get('parent_folder_id') else None
+        item["parent_folder_id"] = (
+            str(item["parent_folder_id"]) if item.get("parent_folder_id") else None
+        )
 
     return data

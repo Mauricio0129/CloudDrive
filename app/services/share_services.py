@@ -14,7 +14,9 @@ class ShareServices:
         """Share a file with another user."""
 
         # Verify file ownership
-        filename = await self.file_services.verify_file_existence_ownership(user_id, share_info.file_id)
+        filename = await self.file_services.verify_file_existence_ownership(
+            user_id, share_info.file_id
+        )
         if not filename:
             raise HTTPException(status_code=404, detail="File not found")
 
@@ -58,15 +60,18 @@ class ShareServices:
                         share_info.delete,
                     )
 
-                return {"message": f"File {filename} successfully shared with user {share_info.username}"}
+                return {
+                    "message": f"File {filename} successfully shared with user {share_info.username}"
+                }
 
             except UniqueViolationError:
                 raise HTTPException(status_code=409, detail="Already shared")
 
-
     async def share_folder(self, user_id, share_info):
         """Share a folder with another user."""
-        response = await self.folder_services.verify_folder_existence_ownership(user_id, share_info.folder_id)
+        response = await self.folder_services.verify_folder_existence_ownership(
+            user_id, share_info.folder_id
+        )
 
         if not response:
             raise HTTPException(status_code=404, detail="Folder not found")
@@ -109,36 +114,38 @@ class ShareServices:
                         share_info.delete,
                     )
 
-                return {"message": f"folder {foldername} successfully shared with user {share_info.username}"}
+                return {
+                    "message": f"folder {foldername} successfully shared with user {share_info.username}"
+                }
 
             except UniqueViolationError:
                 raise HTTPException(status_code=409, detail="Already shared")
-
 
     async def get_shared_with_me(self, user_id):
         # Get share records
         async with self.db.acquire() as conn:
             share_info = await conn.fetch(
-                'SELECT shares.shared_at, '
+                "SELECT shares.shared_at, "
                 'permissions."delete", permissions."write", permissions."read",'
-                'files.id, files.name, files.size_in_bytes, files.type, '
-                'users.email '
-                'FROM shares '
-                'JOIN permissions ON permissions.share_id = shares.id '
-                'JOIN files ON files.id = shares.file_id '
-                'JOIN users ON users.id = files.owner_id '
-                'WHERE shares.shared_with = $1 AND files.parent_folder_id IS NULL '
-                'UNION ALL '
-                'SELECT shares.shared_at, '
+                "files.id, files.name, files.size_in_bytes, files.type, "
+                "users.email "
+                "FROM shares "
+                "JOIN permissions ON permissions.share_id = shares.id "
+                "JOIN files ON files.id = shares.file_id "
+                "JOIN users ON users.id = files.owner_id "
+                "WHERE shares.shared_with = $1 AND files.parent_folder_id IS NULL "
+                "UNION ALL "
+                "SELECT shares.shared_at, "
                 'permissions."delete", permissions."write", permissions."read", '
-                'folders.id, folders.name, NULL as size_in_bytes, NULL as type, '
-                'users.email '
-                'FROM shares '
-                'JOIN permissions ON permissions.share_id = shares.id '
-                'JOIN folders ON folders.id = shares.folder_id '
-                'JOIN users ON users.id = folders.owner_id '
-                'WHERE shares.shared_with = $1 AND folders.parent_folder_id IS NULL ',
-                 user_id)
+                "folders.id, folders.name, NULL as size_in_bytes, NULL as type, "
+                "users.email "
+                "FROM shares "
+                "JOIN permissions ON permissions.share_id = shares.id "
+                "JOIN folders ON folders.id = shares.folder_id "
+                "JOIN users ON users.id = folders.owner_id "
+                "WHERE shares.shared_with = $1 AND folders.parent_folder_id IS NULL ",
+                user_id,
+            )
         data = [dict(record) for record in share_info]
         formated_data = format_db_returning_objects(data)
         return {"content": formated_data}

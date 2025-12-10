@@ -11,7 +11,7 @@ from app.schemas.schemas import (
     UpdateFolderName,
     RenameFile,
     Share,
-    SharedWithMeResponse
+    SharedWithMeResponse,
 )
 from fastapi.security import OAuth2PasswordRequestForm
 from app.dependencies import get_token_and_decode

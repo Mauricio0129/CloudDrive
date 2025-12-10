@@ -8,16 +8,21 @@ import pytest
 from app.schemas.schemas import RegisterUser, FolderCreationBody
 from app.services.user_services import UserServices
 from app.services.auth_services import AuthServices
+from app.services.file_services import FileServices
+from app.services.aws import AwsServices
 import os
 
+## Env variable loading
 load_dotenv()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 secret_key = os.getenv("SECRET_KEY")
 algorithm = os.getenv("ALGORITHM")
 access_token_expire_minutes = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
 testing_database = os.getenv("TESTING_DATABASE")
+region = os.getenv("REGION")
+bucket_name = os.getenv("BUCKET_NAME")
 
+
+## Setup loging environment
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     level=logging.INFO,
@@ -25,10 +30,14 @@ logging.basicConfig(
     handlers=[logging.StreamHandler()],
 )
 
+## Setup cripto context prerequisite of the user services to hash passwords
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 if not testing_database:
     raise ValueError("TESTING_DATABASE environment variable not set")
 
 
+## Prerequisite and state cleaning for testing
 @pytest_asyncio.fixture(scope="session")
 async def db_pool():
     """Created once per session"""
@@ -49,11 +58,29 @@ async def clean_db(db_pool):
     yield
 
 
-@pytest.fixture
-def valid_user_data():
-    return RegisterUser(
-        username="test_user", email="test@test.com", password="test_password"
-    )
+@pytest.fixture(scope="session")
+def aws_services():
+    """Create AwsServices instance for testing."""
+    return AwsServices(region, bucket_name)
+
+
+@pytest.fixture(scope="session")
+def folder_services(db_pool):
+    """Created once per session"""
+    return FolderServices(db_pool)
+
+
+## Services modules instances for testing
+@pytest.fixture(scope="session")
+def file_services(db_pool, folder_services, aws_services):
+    """Create FileServices instance for testing."""
+    return FileServices(db_pool, folder_services, aws_services)
+
+
+@pytest.fixture(scope="session")
+def user_services(db_pool, auth_services):
+    """Created once per session"""
+    return UserServices(db_pool, auth_services)
 
 
 @pytest.fixture(scope="session")
@@ -65,20 +92,16 @@ def auth_services():
     return auth_services
 
 
+## Valid Data sets for testing
+@pytest.fixture
+def valid_user_data():
+    return RegisterUser(
+        username="test_user", email="test@test.com", password="test_password"
+    )
+
+
 @pytest.fixture
 def valid_folder_data_no_parent():
     return FolderCreationBody(
         folder_name="test_folder",
     )
-
-
-@pytest.fixture(scope="session")
-def user_services(db_pool, auth_services):
-    """Created once per session"""
-    return UserServices(db_pool, auth_services)
-
-
-@pytest.fixture(scope="session")
-def folder_services(db_pool):
-    """Created once per session"""
-    return FolderServices(db_pool)

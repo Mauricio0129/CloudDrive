@@ -50,6 +50,7 @@ jobs:
         echo "PORT=filler-port-ci" >> .env
         echo "BUCKET_NAME=filler-bucket-ci" >> .env
         echo "ALGORITHM=HS256" >> .env
+        echo "REGION=us-east-1" >> .env
         echo "ACCESS_TOKEN_EXPIRE_MINUTES=30" >> .env
         echo "TESTING_DATABASE=postgresql://postgres:postgres@localhost:5432/test_clouddrive" >> .env
 

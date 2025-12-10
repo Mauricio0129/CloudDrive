@@ -5,6 +5,8 @@ from .startup import (
     secret_key,
     algorithm,
     access_token_expire_minutes,
+    bucket_name,
+    region,
 )
 from .services.user_services import UserServices
 from .services.auth_services import AuthServices
@@ -40,15 +42,16 @@ async def lifespan(app):
         secret_key, algorithm, access_token_expire_minutes, pwd_context
     )
     user_services = UserServices(pool, auth_services)
+    aws_services = AwsServices(region, bucket_name)
     folder_services = FolderServices(pool)
-    file_services = FileServices(pool, folder_services)
+    file_services = FileServices(pool, folder_services, aws_services)
     share_services = ShareServices(pool, file_services, folder_services)
 
     user_routes = create_user_routes(
         user_services,
         auth_services,
         folder_services,
-        AwsServices,
+        aws_services,
         file_services,
         share_services,
     )
