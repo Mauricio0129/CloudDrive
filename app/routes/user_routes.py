@@ -33,7 +33,7 @@ def create_user_routes(
         return {
             "message": "Welcome to CloudDrive API",
             "status": "running",
-            "version": "1.0.0"
+            "version": "1.0.0",
         }
 
     @user_routes.post("/user")
@@ -152,5 +152,9 @@ def create_user_routes(
     @user_routes.get("/health")
     def health_check():
         return {"status": "healthy"}
+
+    @user_routes.get("/verify-token")
+    async def verify_token(user_id: Annotated[str, Depends(get_token_and_decode)]):
+        return {"status": "valid", "user_id": user_id}
 
     return user_routes
