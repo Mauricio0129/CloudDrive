@@ -28,6 +28,14 @@ def create_user_routes(
 ) -> APIRouter:
     user_routes = APIRouter()
 
+    @user_routes.get("/")
+    async def root():
+        return {
+            "message": "Welcome to CloudDrive API",
+            "status": "running",
+            "version": "1.0.0"
+        }
+
     @user_routes.post("/user")
     async def create_user(user: RegisterUser):
         user_id = await user_services.register_new_user(

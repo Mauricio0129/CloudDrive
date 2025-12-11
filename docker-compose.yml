@@ -8,3 +8,8 @@ services:
       - "8000:8080"
     env_file:
       - .env
+    volumes: # local/container_path
+      - ./tests:/usr/src/tests
+      - ./pytest.ini:/usr/src/pytest.ini
+    extra_hosts: # register new dns and translation to the local machine gateway
+      - "host.docker.internal:host-gateway"
