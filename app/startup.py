@@ -55,6 +55,7 @@ if os.getenv("ENVIRONMENT") == "production":
     access_token_expire_minutes = int(env_creds["ACCESS_TOKEN_EXPIRE_MINUTES"])
     bucket_name = env_creds["BUCKET_NAME"]
     region = env_creds["REGION"]
+    os.environ["LAMBDA_SECRET"] = env_creds["LAMBDA_SECRET"]
 
 else:
     ## Integrity verification step

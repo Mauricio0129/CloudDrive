@@ -1,5 +1,6 @@
+from email.header import Header
 from typing import Annotated
-from fastapi import APIRouter, HTTPException, Depends, Query, Path
+from fastapi import APIRouter, HTTPException, Depends, Query, Path, Header, Body
 from pygments.lexers import q
 
 from app.schemas.schemas import (
@@ -38,7 +39,7 @@ def create_user_routes(
 
     @user_routes.post("/user")
     async def create_user(user: RegisterUser):
-        user_id = await user_services.register_new_user(
+        await user_services.register_new_user(
             user.username, user.email, user.password
         )
         return JSONResponse(
@@ -141,12 +142,15 @@ def create_user_routes(
     async def upload_profile_image(
         user_id: Annotated[str, Depends(get_token_and_decode)], photo_size_in_bytes: int
     ):
+        if photo_size_in_bytes > 5242880:
+            raise HTTPException(status_code=400, detail="Image too large")
         return aws_services.generate_presigned_photo_upload_url(
             user_id, photo_size_in_bytes
         )
 
     @user_routes.get("/profile_photo")
     async def get_profile_image(user_id: Annotated[str, Depends(get_token_and_decode)]):
+        await user_services.validate_if_user_has_profile_picture(user_id)
         return aws_services.generate_presigned_photo_download_url(user_id)
 
     @user_routes.get("/health")
@@ -156,5 +160,12 @@ def create_user_routes(
     @user_routes.get("/verify-token")
     async def verify_token(user_id: Annotated[str, Depends(get_token_and_decode)]):
         return {"status": "valid", "user_id": user_id}
+
+    @user_routes.post("/confirm-profile-picture")
+    async def confirm_profile_picture(
+        x_lambda_secret: Annotated[str, Header()], user_id: Annotated[str, Body()]
+    ):
+        await user_services.confirm_user_profile_picture(user_id, x_lambda_secret)
+        return {"status": "success"}
 
     return user_routes

@@ -1,5 +1,6 @@
 from fastapi import HTTPException
 from pydantic import SecretStr
+import os
 
 
 # noinspection SqlNoDataSourceInspection
@@ -58,3 +59,16 @@ class UserServices:
             )
 
             return str(row["id"])  # Return user ID, let route handle response
+
+    async def confirm_user_profile_picture(self, user_id, x_lambda_secret):
+        if x_lambda_secret != os.getenv("LAMBDA_SECRET"):
+            raise HTTPException(status_code=403, detail="Forbidden")
+
+        async with self.db.acquire() as conn:
+            await conn.execute("UPDATE users SET picture = TRUE WHERE id = $1", user_id)
+
+    async def validate_if_user_has_profile_picture(self, user_id):
+        async with self.db.acquire() as conn:
+            row = await conn.fetchrow("SELECT has_profile_picture FROM users WHERE id = $1", user_id)
+            if not row["has_profile_picture"]:
+                raise HTTPException(status_code=404, detail="User has no profile picture")
