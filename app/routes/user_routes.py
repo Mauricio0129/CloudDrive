@@ -138,7 +138,7 @@ def create_user_routes(
     async def share_with_me(user_id: Annotated[str, Depends(get_token_and_decode)]):
         return await share_services.get_shared_with_me(user_id)
 
-    @user_routes.post("/profile_photo")
+    @user_routes.post("/profile-photo")
     async def upload_profile_image(
         user_id: Annotated[str, Depends(get_token_and_decode)], photo_size_in_bytes: int
     ):
@@ -148,7 +148,7 @@ def create_user_routes(
             user_id, photo_size_in_bytes
         )
 
-    @user_routes.get("/profile_photo")
+    @user_routes.get("/profile-photo")
     async def get_profile_image(user_id: Annotated[str, Depends(get_token_and_decode)]):
         await user_services.validate_if_user_has_profile_picture(user_id)
         return aws_services.generate_presigned_photo_download_url(user_id)

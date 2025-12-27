@@ -65,7 +65,7 @@ class UserServices:
             raise HTTPException(status_code=403, detail="Forbidden")
 
         async with self.db.acquire() as conn:
-            await conn.execute("UPDATE users SET picture = TRUE WHERE id = $1", user_id)
+            await conn.execute("UPDATE users SET has_profile_picture = TRUE WHERE id = $1", user_id)
 
     async def validate_if_user_has_profile_picture(self, user_id):
         async with self.db.acquire() as conn:
