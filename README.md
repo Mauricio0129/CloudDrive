@@ -5,7 +5,7 @@ A file storage API built with FastAPI, PostgreSQL, and AWS S3. Supports user aut
 ## 🔗 Live Demo
 
 **Backend API:** https://api.clouddrive.world  
-**Live Site:** https://frontend-bb5s5p6zk-mauricio-s-projects-13c52c27.vercel.app  
+**Live Site:** https://clouddrive.world/
 **API Documentation:** https://api.clouddrive.world/docs
 
 ## Architecture
