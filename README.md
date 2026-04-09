@@ -8,6 +8,13 @@ A file storage API built with FastAPI, PostgreSQL, and AWS S3. Features user aut
 **Live Site:** https://clouddrive.world/  
 **API Documentation:** https://api.clouddrive.world/docs
 
+## Screenshots
+
+![Multi-file upload tracking](screenshots/each_file_independt_upload_track_on_upload_menu.png)
+![Home - grid view with image previews](screenshots/home_with_image_preview_grids.png)
+![List view with hover preview](screenshots/list_view_preview.png)
+![Sorting options](screenshots/previews_sorting_options_grid.png)
+
 ## Why I Built This
 
 I wanted to build a real, deployed system rather than following tutorials. CloudDrive gave me hands-on experience with AWS infrastructure, event-driven architecture, and performance optimization. It pushed me to think about reliability (health checks, load balancing across availability zones), security (presigned URLs, file validation), and user experience (automatic thumbnails, parallel uploads).
