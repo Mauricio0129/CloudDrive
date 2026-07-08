@@ -1,6 +1,10 @@
 # CloudDrive
 
-A file storage API built with FastAPI, PostgreSQL, and AWS S3. Features user authentication, parallel multi-file uploads, automatic image processing, and file sharing.
+A cloud file storage platform built with FastAPI, PostgreSQL, and AWS. CloudDrive supports secure file uploads, sharing, asynchronous image processing, and production-style cloud deployment using S3, Lambda, EC2, and Application Load Balancer.
+
+The project was built to explore how real-world storage systems handle object uploads, asynchronous workloads, security validation, and cloud infrastructure.
+
+---
 
 ## 🔗 Live Demo
 
@@ -8,252 +12,314 @@ A file storage API built with FastAPI, PostgreSQL, and AWS S3. Features user aut
 **Live Site:** https://clouddrive.world/  
 **API Documentation:** https://api.clouddrive.world/docs
 
+---
+
 ## Screenshots
 
 ![Multi-file upload tracking](screenshots/each_file_independt_upload_track_on_upload_menu.png)
+
 ![Home - grid view with image previews](screenshots/home_with_image_preview_grids.png)
+
 ![List view with hover preview](screenshots/list_view_preview.png)
+
 ![Sorting options](screenshots/previews_sorting_options_grid.png)
-
-## Why I Built This
-
-I wanted to build a real, deployed system rather than following tutorials. CloudDrive gave me hands-on experience with AWS infrastructure, event-driven architecture, and performance optimization. It pushed me to think about reliability (health checks, load balancing across availability zones), security (presigned URLs, file validation), and user experience (automatic thumbnails, parallel uploads).
-
-## Overview
-
-CloudDrive is a REST API for file storage. Users can upload multiple files simultaneously to AWS S3, organize them in folders, and share files with permissions.
-
-**Key capabilities:**
-- Parallel multi-file uploads with S3 presigned URLs
-- Folder-based organization with sharing controls
-- JWT authentication with bcrypt password hashing
-- AWS deployment with Application Load Balancer across availability zones
-- Automatic image processing (see Lambda Functions section)
-
-## Features
-
-### Authentication
-- User registration and login
-- JWT token-based authentication
-- Password hashing with bcrypt
-- Secure password reset flow
-
-### File Operations
-- Parallel multi-file uploads using S3 presigned URLs
-- File metadata tracking (name, size, MIME type, upload date)
-- Folder-based organization
-- File deletion and renaming
-- Image preview endpoints
-
-### Profile Management
-- Profile photo uploads
-- Automatic resizing and validation
-
-### Sharing
-- Share files or folders with other users
-- Permission levels (view, edit)
-- View all items shared with you
-
-## Architecture
-
-```
-┌─────────────┐
-│ User/Browser│
-└──────┬──────┘
-       │ HTTPS
-       ↓
-┌──────────────────────────────┐
-│ Frontend (Vercel)            │
-│ React + Vite + Tailwind      │
-└──────┬───────────────────────┘
-       │ API Calls
-       ↓
-┌──────────────────────────────┐
-│ Application Load Balancer    │
-│ api.clouddrive.world         │
-│                              │
-│ - SSL/TLS Termination        │
-│ - Health Check: /health      │
-│ - AZ: us-east-1a, us-east-1f │
-└──────┬───────────────────────┘
-       │ Forwards to EC2
-       ↓
-┌──────────────────────────────────────────────┐
-│ EC2 Instance (Ubuntu)                        │
-│                                              │
-│ ┌──────────────────────────────────────┐     │
-│ │ Docker Container                     │     │
-│ │ FastAPI (uvicorn app.main:app)       │     │
-│ └──────────────────────────────────────┘     │
-│                                              │
-│ ┌──────────────────────────────────────┐     │
-│ │ IAM Role                             │     │
-│ │ - S3 Access (cloudriveproject only)  │     │
-│ │ - SecretsManagerReadWrite            │     │
-│ └──────────────────────────────────────┘     │
-└──────┬────────────┬──────────────────────────┘
-       │            │
-       ↓            ↓
-┌─────────────┐  ┌─────────────┐  ┌──────────────┐
-│AWS Secrets  │  │  AWS S3     │  │  Supabase    │
-│Manager      │  │  Bucket     │  │  PostgreSQL  │
-└─────────────┘  └──────┬──────┘  └──────────────┘
-                        │
-                        │ S3 Event Triggers
-                        ↓
-              ┌─────────────────────────────┐
-              │ AWS Lambda Functions        │
-              │ - ProfilePictureValidator   │
-              │ - VerifyFilesAndCreate      │
-              │   Previews                  │
-              └─────────────────────────────┘
-```
-
-## Lambda Functions
-
-CloudDrive uses two Lambda functions triggered by S3 events to handle image processing asynchronously.
-
-### ProfilePictureValidator
-**Trigger:** S3 upload to `profile_photos/original/`
-
-Validates and processes user profile pictures. Downloads the file, checks the actual file type from bytes (not extension), and either deletes malicious uploads or resizes valid images to 400×400.
-
-**Security feature:** Prevents users from uploading `.exe`, `.zip`, or other non-image files by detecting MIME types from file bytes rather than trusting file extensions.
-
-**Flow:**
-1. Download file from S3 and detect type from bytes
-2. If not an image → delete from S3 and exit
-3. If valid image → resize to 400×400 with PIL → upload to `resized/` folder → notify backend
-
-**Performance:** Optimized from 512ms → **139ms** (3.7× faster)
 
 ---
 
-### VerifyFilesAndCreatePreviews
-**Trigger:** S3 upload to `files/{user_id}/{file_id}`
+# Architecture Overview
 
-Confirms file uploads in the database and automatically generates 400×400 thumbnails for images.
+CloudDrive separates file transfer, API operations, and background processing to keep user-facing requests fast and scalable.
 
-**Flow:**
-1. Parse S3 key to extract `user_id` and `file_id`
-2. Notify backend to set `confirmed_upload = TRUE` in database
-3. If file is an image → generate 400×400 thumbnail with PIL → upload to `previews/` folder → notify backend to set `preview_ready = TRUE`
+```
+User Browser
+      |
+      | HTTPS
+      v
+Frontend (React + Vite + Tailwind)
+      |
+      | API Requests
+      v
+Application Load Balancer
+      |
+      | Health Checked Routing
+      v
+FastAPI Backend (Docker on EC2)
+      |
+      |----------------------|
+      |                      |
+      v                      v
+PostgreSQL              AWS Services
+(Database)                  |
+                            |
+              -----------------------------
+              |                           |
+              v                           v
+          S3 Storage                Secrets Manager
 
-**Configuration:** 512MB memory, 8 second timeout, Python 3.12
+              |
+              | S3 Event Notifications
+              v
 
-**Performance:** Optimized from 6223ms → **1399ms** (4.4× faster) by increasing memory from 128MB to 512MB
+        AWS Lambda Processing
+              |
+              |
+      Image Validation + Thumbnails
+```
 
-**Authentication:** Both Lambda functions authenticate with the backend API using a shared secret in the `X-Lambda-Secret` header.
+---
 
-**Why asynchronous?** Processing images after upload keeps the upload endpoint fast. Users get immediate feedback while thumbnails generate in the background.
+# Core Features
 
-## API Endpoints
+## Secure File Uploads
 
-### Authentication
-- `POST /register` - Create new user
-- `POST /login` - Authenticate and get JWT token
-- `POST /request-password-reset` - Request password reset email
-- `POST /reset-password` - Reset password with token
+CloudDrive uses AWS S3 presigned URLs so users upload files directly to object storage instead of routing large file transfers through the backend API.
 
-### Files
-- `POST /files` - Request S3 presigned URLs for upload
-- `GET /files` - List user's files
-- `PATCH /files/{file_id}` - Rename file
-- `DELETE /files/{file_id}` - Delete file
-- `GET /image-preview/{file_id}` - Get image thumbnail
+Benefits:
+- Reduces API server bandwidth usage
+- Allows efficient large-file uploads
+- Keeps authentication and authorization handled by FastAPI
 
-### Folders
-- `POST /drive` - Create folder
-- `GET /drive` - List root contents
-- `GET /drive/{folder_id}` - List folder contents
-- `PATCH /drive/{folder_id}` - Rename folder
+Implemented features:
+- Parallel multi-file uploads
+- File metadata tracking
+- Folder organization
+- File deletion and renaming
+- Image preview generation
 
-### Sharing
-- `POST /share` - Share file or folder
-- `GET /shared-with-me` - List shared items
+---
 
-### Profile
-- `POST /profile-photo` - Upload profile photo
-- `GET /profile-photo` - Get profile photo URL
+## Authentication and Authorization
 
-### Health
-- `GET /` - API info
-- `GET /health` - Health check
+Implemented:
 
-## Getting Started
+- JWT-based authentication
+- bcrypt password hashing
+- Password reset workflow
+- Protected file operations
+- File and folder sharing permissions
 
-### Prerequisites
+Users can:
+- Share files and folders
+- Assign view/edit permissions
+- Access shared resources
+
+---
+
+# Asynchronous Image Processing
+
+Image processing is handled asynchronously through AWS Lambda functions triggered by S3 upload events.
+
+Instead of blocking the upload request while generating thumbnails, the backend confirms the upload immediately and processing occurs in the background.
+
+## ProfilePictureValidator
+
+**Trigger:**
+
+```
+S3 upload → profile_photos/original/
+```
+
+Responsibilities:
+
+1. Downloads uploaded image
+2. Validates actual file type from bytes
+3. Rejects malicious or invalid uploads
+4. Resizes valid images to 400×400
+5. Stores processed output
+
+Security improvement:
+
+The system does not trust file extensions. MIME type detection is performed using file contents to prevent uploads of disguised executable or archive files.
+
+Performance:
+
+Reduced processing time:
+
+```
+512ms → 139ms
+3.7× improvement
+```
+
+---
+
+## VerifyFilesAndCreatePreviews
+
+**Trigger:**
+
+```
+S3 upload → files/{user_id}/{file_id}
+```
+
+Responsibilities:
+
+1. Extracts file metadata from S3 event
+2. Confirms upload completion in PostgreSQL
+3. Generates image thumbnails
+4. Updates processing state
+
+Configuration:
+
+- Memory: 512MB
+- Timeout: 8 seconds
+- Runtime: Python 3.12
+
+Performance optimization:
+
+```
+6223ms → 1399ms
+4.4× improvement
+```
+
+Improved through Lambda memory tuning and execution optimization.
+
+Authentication:
+
+Lambda functions communicate with the backend using a shared secret through the `X-Lambda-Secret` header.
+
+---
+
+# Infrastructure
+
+CloudDrive is deployed using:
+
+## AWS EC2
+
+- Dockerized FastAPI application
+- Ubuntu server environment
+- IAM role-based permissions
+
+## AWS Application Load Balancer
+
+Configured with:
+
+- HTTPS termination
+- Health checks
+- Multi-AZ support
+
+## AWS S3
+
+Used for:
+
+- User file storage
+- Presigned uploads
+- Event-driven processing triggers
+
+## AWS Secrets Manager
+
+Used for secure runtime configuration and credential management.
+
+---
+
+# Design Decisions
+
+## Why S3 presigned URLs?
+
+Uploading large files through the backend would consume unnecessary server bandwidth.
+
+Presigned URLs allow clients to upload directly to S3 while the backend continues handling authentication, permissions, and metadata.
+
+---
+
+## Why asynchronous processing?
+
+Thumbnail generation and validation can take longer than normal API requests.
+
+Moving processing into Lambda allows:
+
+- Faster upload responses
+- Better user experience
+- Independent scaling of background workloads
+
+---
+
+## Why Lambda instead of FastAPI background tasks?
+
+Lambda provides isolated execution triggered by storage events.
+
+This removes image processing work from the API server and prevents long-running tasks from affecting request latency.
+
+---
+
+## Why Docker?
+
+Docker provides consistent deployment between local development and AWS hosting while simplifying dependency management.
+
+---
+
+# Testing
+
+Unit tests are written using pytest.
+
+```
+pytest tests/unit_tests
+```
+
+Coverage:
+
+```
+84%
+```
+
+---
+
+# Deployment
+
+CloudDrive is deployed with:
+
+- EC2 running Docker containers
+- Application Load Balancer with HTTPS
+- S3 object storage
+- Lambda event processing
+- Secrets Manager configuration
+- GitHub Actions CI/CD
+
+Every push triggers automated testing through GitHub Actions.
+
+---
+
+# Local Development
+
+## Prerequisites
+
 - Docker
-- AWS account (S3, EC2, Lambda, IAM)
+- AWS account
 - PostgreSQL database
 
-### Run Locally
+## Run Locally
+
 ```bash
 docker-compose up
-# API available at http://localhost:8000
-# Docs available at http://localhost:8000/docs
 ```
 
-## Testing
+API:
 
-```bash
-pytest tests/unit_tests
-# Coverage: 84%
+```
+http://localhost:8000
 ```
 
-## Deployment
+Documentation:
 
-Deployed on AWS with:
-- **EC2** running Docker container
-- **Application Load Balancer** with SSL certificate, health checks, and availability zone redundancy (us-east-1a, us-east-1f)
-- **S3** for file storage with event triggers
-- **Lambda Functions** for image processing
-- **Secrets Manager** for credentials
+```
+http://localhost:8000/docs
+```
 
-### CI/CD
-GitHub Actions runs tests on every push.
+---
 
-## What I Learned
-
-### AWS
-- EC2 server deployment and Docker hosting
-- Application Load Balancer with SSL termination, health checks, and availability zone distribution
-- S3 object storage, event notifications, and presigned URLs
-- Lambda event-driven processing and performance tuning
-- Secrets Manager and IAM role-based access control
-
-### Backend
-- FastAPI framework and async Python
-- RESTful API design and JWT authentication
-- Password hashing with bcrypt
-- Error handling and HTTP status codes
-
-### Database
-- PostgreSQL schema design
-- Async operations with asyncpg
-- Boolean flags for tracking async processing state
-
-### DevOps
-- Docker containerization and Docker Compose
-- GitHub Actions CI/CD
-- Availability zone redundancy within AWS region
-
-### Performance
-- Lambda memory tuning (4.4× speedup on image processing)
-- PIL/Pillow optimization
-- Async/await patterns
-
-## Future Improvements
+# Future Improvements
 
 - [ ] Search functionality
 - [ ] File versioning
 - [ ] Batch operations
-- [ ] Video preview thumbnails
+- [ ] Video thumbnail generation
 - [ ] Real-time notifications
 - [ ] Rate limiting
-- [ ] Caching layer (Redis)
+- [ ] Redis caching layer
 
-## Contact
+---
 
-Built by Mauricio Moreno  
-GitHub: [@mauricio0129](https://github.com/mauricio0129)
+# Contact
+
+Built by Mauricio Moreno
+
+GitHub:
+https://github.com/mauricio0129
